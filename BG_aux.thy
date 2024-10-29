@@ -11,29 +11,65 @@ section "Auxillary Lemmas"
 
 text "Here, we have all the auxillary lemmas used to prove the correctness of Blum-Goldwasser cryptosystem"
 
-(*Euler's criterion does not exist in Isabelle, should be proven.
-  This is just a preliminary attempt at proving it - going to look into it 
-  further after the formalization is done *)
+
+text "Out proof of correctness will only consider x_i that are squared in modulo residue of p. We 
+Therefore prove that case only:"
 lemma eulers_criterion:
-  assumes "prime (p :: nat)" "p = 2 * p_2 + 1" "\<not> p dvd x"
-  shows "if (\<exists>y. y^2 = x) then [x^(p_2) = 1] (mod p) else [x^(p_2) = -1] (mod p)"
+  assumes "prime (p :: nat)" "odd p" "\<not> p dvd x" "(\<exists>y. [y^2 = x] (mod p))"
+  shows "[x^((p - 1) div 2) = 1] (mod p)"
 proof -
-  from assms fermat_theorem
-  have "[x ^ (p - 1) = 1] (mod p)"
+  from assms(2) have even_p_minus_one: "even (p - 1)" by auto
+  then have "(\<exists>k. p - 1 = 2 * k)"  by blast
+  then obtain k where obtain_k:"p - 1 = 2 * k" by blast
+
+  from assms(1) assms(3) fermat_theorem 
+  have "[x^(p - 1) = 1] (mod p)"
     by algebra
-  then have "[x ^ (p - 1) - 1 = 0] (mod p)"
-    using cong_0_iff cong_to_1_nat 
-    by blast
-  then have "[(x ^ p_2 - 1) * (x ^ p_2 + 1) = 0] (mod p)"
-    using Nat.add_diff_assoc2 add.commute add_diff_cancel_left' assms(2) 
-   distrib_left linorder_not_less mult.right_neutral mult_eq_if not_add_less1 
-   power2_eq_square power_even_eq
-    by (smt (verit))
-  then show ?thesis 
-    sorry
+  then have "[x^((p - 1) div 2) * x^((p - 1) div 2) = 1] (mod p)" 
+  using dvd_div_mult_self even_p_minus_one power2_eq_square power_mult
+  by (metis)
+  then have trial: "[x^((p - 1) div 2) = 1] (mod p) \<or> [x^((p - 1) div 2) = -1] (mod p)" 
+    using assms(1) cong_int_iff cong_square int_ops(2) mult_0_right nat_code(2) nat_int
+      negative_zle of_nat_mult prime_nat_int_transfer
+    by (smt (z3) )
+
+  from assms(4) obtain y where obtain_y: "[y^2 = x] (mod p)" by blast
+  from trial obtain_y have options: "[(y^2)^((p - 1) div 2) = 1] (mod p) \<or> [(y^2)^((p - 1) div 2) = -1] (mod p)"
+  using cong_int_iff cong_pow cong_trans
+    by (meson)
+  have "\<not> [(y^2)^((p - 1) div 2) = -1] (mod p)" 
+  proof (rule ccontr)
+    assume "\<not> \<not> [(y^2)^((p - 1) div 2) = -1] (mod p)"
+    then have "[(y^2)^((p - 1) div 2) = -1] (mod p)" by auto
+    then have "[(y)^(((p - 1) div 2) * 2) = -1] (mod p)" using power_mult
+      by (metis mult.commute)
+    then have y_minus_one: "[(y)^(p - 1) = -1] (mod p)"
+      using even_p_minus_one by auto
+    have "\<not> p dvd y" 
+      using assms(1) assms(3) cong_dvd_iff obtain_y pos2 prime_dvd_power_nat_iff by blast
+    then have "[(y)^(p - 1) = 1] (mod p)"
+      using fermat_theorem assms(1) by auto
+    from this y_minus_one have contradiction: "[(y)^(p - 1) = -1] (mod p) \<and> [(y)^(p - 1) = 1] (mod p)" by auto
+
+    then have "[-1 = (y)^(p - 1)] (mod p) \<and> [(y)^(p - 1) = 1] (mod p)" 
+      using cong_sym_eq by auto
+    then have "[-1 = (y)^(p - 1)] (mod p) \<and> [int (y)^(p - 1) = int 1] (mod p)" 
+      using cong_int_iff int_ops(2) by force
+    then have "[-1 = 1] (mod p)" using cong_trans by auto
+    then have "[1 = -1] (mod p)" using cong_sym by auto
+    then have "p dvd (1 - (-1))" using cong_iff_dvd_diff 
+      by fast
+    then have "p dvd 2" by presburger
+    thus "False" 
+       using assms(2) assms(1) primes_dvd_imp_eq two_is_prime_nat by blast
+  qed
+   
+  from this options have "[(y^2)^((p - 1) div 2) = 1] (mod p)" by auto
+  thus ?thesis using obtain_y cong_pow cong_sym cong_trans
+    by (meson)
 qed
 
-
+(*TODO: Get rid of all meson/smt/metis calls!!*)
 
 
 end

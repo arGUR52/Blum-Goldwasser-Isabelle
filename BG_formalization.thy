@@ -2,6 +2,7 @@ theory BG_formalization imports
   Main
   CryptHOL.CryptHOL
   "Crypto_Standards.Words"
+  
 begin
 
 section "Introduction"
@@ -38,10 +39,10 @@ list, and goes on with splitting the rest."
 
 (*TODO: Find lemmas for split to prove its correctness!*)
 
-text "We define the loop in the encryption as a recursive function. This function takes the nat-to-bit 
-conversion function as a parameter:"
+text "We define the loop in the encryption as a recursive function. This function takes the nat-to
+-bit conversion function as a parameter:"
 
-function enc_loop_func 
+fun enc_loop_func 
   :: "((nat => bitstring) \<times> nat \<times> nat \<times> bitstring list) \<Rightarrow> bitstring list \<Rightarrow> nat \<Rightarrow> (bitstring list \<times> nat)" 
   where
    "enc_loop_func (f, n, h, []) c_acc x = (c_acc, x)" |
@@ -52,24 +53,21 @@ function enc_loop_func
         let c_i = m_i [\<oplus>] p_i;
         enc_loop_func (f, n, h, m_rest) (c_i # c_acc) x_i
         }"
-  apply (auto)
-  using List.list.exhaust by blast
 
-text "The function keyword is needed, since 'fun' didn't allow the function application (f (x_i mod 2^h))."
 
-text "A simple function to convert a bit represented by a natural number to a bit represented by a boolean
-value:"
+text "A simple function to convert a bit represented by a natural number to a bit represented by a 
+boolean value:"
 
-function nat_to_bit :: "nat \<Rightarrow> bool" where
+fun nat_to_bit :: "nat \<Rightarrow> bool" where
   case_0: "nat_to_bit 0 = False" | 
-  case_1: "nat_to_bit 1 = True" |
+  case_1: "nat_to_bit (Suc 0) = True" |
   case_greater: "nat_to_bit (Suc (Suc n)) = False"
-  apply auto
-  using not0_implies_Suc by blast
+
 
 text "The function gives False for anything other than True."
 
-text "We finally define a function to convert a natural number to a bitstring, with the help of nat_to_bits."
+text "We finally define a function to convert a natural number to a bitstring, with the help of 
+nat_to_bits."
 definition nat_to_bitstring :: "nat \<Rightarrow> bitstring" where 
   "nat_to_bitstring = (\<lambda>n. map (nat_to_bit) (nat_to_bits n))"
 
