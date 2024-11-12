@@ -72,4 +72,39 @@ qed
 (*TODO: Get rid of all meson/smt/metis calls!!*)
 
 
+
+
+
+text "Proof that (\<lfloor>log 2 (log 2 n)\<rfloor> can be rewritten as \<lfloor>log 2 \<lfloor>log 2 n\<rfloor>\<rfloor>"
+
+lemma 
+  assumes "(n::nat) > 2"
+  shows "\<And>(k::nat). (\<lfloor>log 2 (log 2 n)\<rfloor> = k) = (\<lfloor>log 2 \<lfloor>log 2 n\<rfloor>\<rfloor> = k)" 
+proof -
+   have log_n_greater_zero: "(log 2 n) > 0" using assms by auto
+  then have floor_log: "\<And>(k::nat). (\<lfloor>log 2 (log 2 n)\<rfloor> = k) = (2 ^ k \<le> log 2 n \<and> log 2 n < 2 ^ (Suc k))"  
+    using assms floor_log_eq_powr_iff powr_realpow 
+          Num.of_nat_simps(4) int_ops(2) of_int_of_nat_eq
+    by (smt (verit, best) of_nat_Suc)
+
+  also have log_n_greater_zero: "(log 2 n) > 0" using assms by auto
+  then have floor2: "\<And>(k::nat). (\<lfloor>log 2 \<lfloor>log 2 n\<rfloor>\<rfloor> = k) = (2 ^ k \<le> real_of_int \<lfloor>log 2 n\<rfloor> \<and> real_of_int \<lfloor>log 2 n\<rfloor> < 2 ^ (Suc k))"  
+    using assms floor_log_eq_powr_iff powr_realpow 
+          Num.of_nat_simps(4) int_ops(2) of_int_of_nat_eq
+    by (smt (verit) nat_1_add_1 nat_less_real_le of_int_0_less_iff 
+        of_int_add of_nat_1 one_le_log_cancel_iff plus_1_eq_Suc zero_less_floor)
+
+  then have "\<And>(k::nat). (2 ^ k \<le> log 2 n) = (2 ^ k \<le> \<lfloor>log 2 n\<rfloor>)" 
+    by (simp add: le_floor_iff)
+  
+  from floor_log this
+  have floor_down: "\<And>(k::nat). (\<lfloor>log 2 (log 2 n)\<rfloor> = k) = (2 ^ k \<le> \<lfloor>log 2 n\<rfloor> \<and> \<lfloor>log 2 n\<rfloor> < 2 ^(Suc k))"
+    using not_less 
+  by (smt (verit) of_int_1 of_int_add)
+ 
+  from assms have "\<lfloor>log 2 n\<rfloor> > 0" by auto
+  from this floor_down floor2 show "\<And>(k::nat). (\<lfloor>log 2 (log 2 n)\<rfloor> = k) = (\<lfloor>log 2 \<lfloor>log 2 n\<rfloor>\<rfloor> = k)" 
+    using numeral_power_le_of_int_cancel_iff of_int_less_numeral_power_cancel_iff by blast
+qed
+
 end

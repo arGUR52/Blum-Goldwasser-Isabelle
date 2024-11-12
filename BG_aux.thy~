@@ -11,15 +11,11 @@ section "Auxillary Lemmas"
 
 text "Here, we have all the auxillary lemmas used to prove the correctness of Blum-Goldwasser cryptosystem"
 
-(*Euler's criterion does not exist in Isabelle, should be proven.
-  This is just a preliminary attempt at proving it - going to look into it 
-  further after the formalization is done *)
 
-
-
-(*split if_splits safe goal_cases*)
+text "Out proof of correctness will only consider x_i that are squared in modulo residue of p. We 
+Therefore prove that case only:"
 lemma eulers_criterion:
-  assumes "prime (p :: nat)" "odd p" "\<not> p dvd x" "(\<exists>y. y^2 = x)"
+  assumes "prime (p :: nat)" "odd p" "\<not> p dvd x" "(\<exists>y. [y^2 = x] (mod p))"
   shows "[x^((p - 1) div 2) = 1] (mod p)"
 proof -
   from assms(2) have even_p_minus_one: "even (p - 1)" by auto
@@ -33,19 +29,14 @@ proof -
   using dvd_div_mult_self even_p_minus_one power2_eq_square power_mult
   by (metis)
   then have trial: "[x^((p - 1) div 2) = 1] (mod p) \<or> [x^((p - 1) div 2) = -1] (mod p)" 
-    by (metis assms(1) assms(3) assms(4) div_mult_self1_is_m fermat_theorem 
-    obtain_k pos2 power_mult prime_dvd_power_nat_iff)
+    using assms(1) cong_int_iff cong_square int_ops(2) mult_0_right nat_code(2) nat_int
+      negative_zle of_nat_mult prime_nat_int_transfer
+    by (smt (z3) )
 
-  (*then have before_split: "[x^(2 * k) - 1 = 0] (mod p)" using obtain_k by auto
-  
-  have "(x^(2 * k) - 1 = (x ^ k - 1) * (x ^k + 1))"
-    by (auto simp add: mult.commute power2_eq_square right_diff_distrib' power_mult)
-  from this before_split have after_split: "[(x ^ k - 1) * (x ^k + 1) = 0] (mod p)" 
-    by auto*)
-
-  from assms(4) obtain y where obtain_y: "y^2 = x" by blast
-  from trial obtain_y have "[(y^2)^((p - 1) div 2) = 1] (mod p) \<or> [(y^2)^((p - 1) div 2) = -1] (mod p)"
-    by auto
+  from assms(4) obtain y where obtain_y: "[y^2 = x] (mod p)" by blast
+  from trial obtain_y have options: "[(y^2)^((p - 1) div 2) = 1] (mod p) \<or> [(y^2)^((p - 1) div 2) = -1] (mod p)"
+  using cong_int_iff cong_pow cong_trans
+    by (meson)
   have "\<not> [(y^2)^((p - 1) div 2) = -1] (mod p)" 
   proof (rule ccontr)
     assume "\<not> \<not> [(y^2)^((p - 1) div 2) = -1] (mod p)"
@@ -55,52 +46,61 @@ proof -
     then have y_minus_one: "[(y)^(p - 1) = -1] (mod p)"
       using even_p_minus_one by auto
     have "\<not> p dvd y" 
-      using obtain_y assms(3) assms(1) pos2 prime_dvd_power_iff by blast
+      using assms(1) assms(3) cong_dvd_iff obtain_y pos2 prime_dvd_power_nat_iff by blast
     then have "[(y)^(p - 1) = 1] (mod p)"
       using fermat_theorem assms(1) by auto
     from this y_minus_one have contradiction: "[(y)^(p - 1) = -1] (mod p) \<and> [(y)^(p - 1) = 1] (mod p)" by auto
 
-    have "\<not> [1 = -1] (mod p)" 
-    proof (rule ccontr)
-      assume "\<not>\<not> [1 = -1] (mod p)" 
-      then have "[1 = -1] (mod p)" by auto
-      then have "p dvd 1 - (-1)" using cong_iff_dvd_diff 
-        by fast
-      then have "p dvd 2" by presburger
-      then show "False" 
-        using assms(2) assms(1) primes_dvd_imp_eq two_is_prime_nat by blast
-    qed 
-    from contradiction have "[-1 = (y)^(p - 1)] (mod p) \<and> [(y)^(p - 1) = 1] (mod p)" 
+    then have "[-1 = (y)^(p - 1)] (mod p) \<and> [(y)^(p - 1) = 1] (mod p)" 
       using cong_sym_eq by auto
     then have "[-1 = (y)^(p - 1)] (mod p) \<and> [int (y)^(p - 1) = int 1] (mod p)" 
       using cong_int_iff int_ops(2) by force
     then have "[-1 = 1] (mod p)" using cong_trans by auto
-    
-    from this contradiction show "False" using cong_int_iff   int_ops(2)
-      sorry
-    
-
-     
-
-  (*from after_split obtain_y have "[((y^2) ^ k - 1) * ((y^2) ^ k + 1) = 0] (mod p)" by auto 
-  then have "[(y ^ (2*k) - 1) * (y ^ (2*k) + 1) = 0] (mod p)" using power_mult[symmetric] by metis
-  then have 
-
-  from this assms have p_coprime_to_y: "\<not> p dvd y" 
-    by (auto simp add: prime_dvd_power_nat_iff)
-  from obtain_y fermat_theorem_simplified have "[(y^2)^(p - 1) - 1 = 0] (mod p)" by auto
-  then have "[y^(2 * (p - 1)) - 1 = 0] (mod p)" 
-    by (simp add: power_mult)
-  then have before_split: "[(y^(p - 1))^2 - 1 = 0] (mod p)"    
-    by (simp add: power_even_eq)
-  have "(y^(p - 1))^2 - 1 = (y^(p - 1) - 1) * (y ^ (p - 1) + 1)" 
-    by (simp add: mult.commute power2_eq_square right_diff_distrib')
-  from this before_split have "[(y^(p - 1) - 1) * (y^(p - 1) + 1) = 0] (mod p)" 
-    by auto *)
-  
+    then have "[1 = -1] (mod p)" using cong_sym by auto
+    then have "p dvd (1 - (-1))" using cong_iff_dvd_diff 
+      by fast
+    then have "p dvd 2" by presburger
+    thus "False" 
+       using assms(2) assms(1) primes_dvd_imp_eq two_is_prime_nat by blast
+  qed
+   
+  from this options have "[(y^2)^((p - 1) div 2) = 1] (mod p)" by auto
+  thus ?thesis using obtain_y cong_pow cong_sym cong_trans
+    by (meson)
 qed
 
+(*TODO: Get rid of all meson/smt/metis calls!!*)
 
+text "Proof that (\<lfloor>log 2 (log 2 n)\<rfloor> can be rewritten as \<lfloor>log 2 \<lfloor>log 2 n\<rfloor>\<rfloor>"
 
+lemma 
+  assumes "(n::nat) > 2"
+  shows "\<And>(k::nat). (\<lfloor>log 2 (log 2 n)\<rfloor> = k) = (\<lfloor>log 2 \<lfloor>log 2 n\<rfloor>\<rfloor> = k)" 
+proof -
+   have log_n_greater_zero: "(log 2 n) > 0" using assms by auto
+  then have floor_log: "\<And>(k::nat). (\<lfloor>log 2 (log 2 n)\<rfloor> = k) = (2 ^ k \<le> log 2 n \<and> log 2 n < 2 ^ (Suc k))"  
+    using assms floor_log_eq_powr_iff powr_realpow 
+          Num.of_nat_simps(4) int_ops(2) of_int_of_nat_eq
+    by (smt (verit, best) of_nat_Suc)
+
+  also have log_n_greater_zero: "(log 2 n) > 0" using assms by auto
+  then have floor2: "\<And>(k::nat). (\<lfloor>log 2 \<lfloor>log 2 n\<rfloor>\<rfloor> = k) = (2 ^ k \<le> real_of_int \<lfloor>log 2 n\<rfloor> \<and> real_of_int \<lfloor>log 2 n\<rfloor> < 2 ^ (Suc k))"  
+    using assms floor_log_eq_powr_iff powr_realpow 
+          Num.of_nat_simps(4) int_ops(2) of_int_of_nat_eq
+    by (smt (verit) nat_1_add_1 nat_less_real_le of_int_0_less_iff 
+        of_int_add of_nat_1 one_le_log_cancel_iff plus_1_eq_Suc zero_less_floor)
+
+  then have "\<And>(k::nat). (2 ^ k \<le> log 2 n) = (2 ^ k \<le> \<lfloor>log 2 n\<rfloor>)" 
+    by (simp add: le_floor_iff)
+  
+  from floor_log this
+  have floor_down: "\<And>(k::nat). (\<lfloor>log 2 (log 2 n)\<rfloor> = k) = (2 ^ k \<le> \<lfloor>log 2 n\<rfloor> \<and> \<lfloor>log 2 n\<rfloor> < 2 ^(Suc k))"
+    using not_less 
+  by (smt (verit) of_int_1 of_int_add)
+ 
+  from assms have "\<lfloor>log 2 n\<rfloor> > 0" by auto
+  from this floor_down floor2 show "\<And>(k::nat). (\<lfloor>log 2 (log 2 n)\<rfloor> = k) = (\<lfloor>log 2 \<lfloor>log 2 n\<rfloor>\<rfloor> = k)" 
+    using numeral_power_le_of_int_cancel_iff of_int_less_numeral_power_cancel_iff by blast
+qed
 
 end
