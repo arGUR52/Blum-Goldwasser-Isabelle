@@ -131,25 +131,111 @@ definition decrypt :: "nat \<Rightarrow> nat \<Rightarrow> (bitstring list \<tim
 
 text "Correctness proof"
 
-lemma  
-  assumes "n > 0" "h > 0" "x < n"
-  shows "snd (enc_loop (n, h, m) x) = x ^ (length m + 1) mod n"
+lemma enc_loop_func_exp: 
+  assumes "n > 0" "x < n"
+  shows "snd (enc_loop_func (nat_to_bitstring h, n, h, m) c x) = x ^ (2 ^ (length m)) mod n"
   using assms
-proof (induction m)
+proof (induction m arbitrary: x c)
   case Nil
-  from enc_loop.simps have "(enc_loop (n, h, []) x) = 
-    enc_loop_func (nat_to_bitstring h, n, h, []) [] x" by auto
-  then have "(enc_loop (n, h, []) x) = ([], x)" using enc_loop_func.simps(1) by auto
-  then have "snd (enc_loop (n, h, []) x) = snd ([], x) " by auto
-  then have "snd (enc_loop (n, h, []) x) = x" by auto
-  then have "snd (enc_loop (n, h, []) x) = x ^ ((length []) + 1)" by auto
-  then show ?case using assms(3) by auto
+  then have "(enc_loop_func (nat_to_bitstring h, n, h, []) c x) = (c, x)" using enc_loop_func.simps(1) by auto
+  then show ?case using local.Nil(2) by auto
 next
   case (Cons a m)
-  then show ?case sorry
+  then have enc_loop_def: "snd (enc_loop_func (nat_to_bitstring h, n, h, (a # m)) c x) = snd(
+        (let x_i = x * x mod n in
+        let p_i = (nat_to_bitstring h) (x_i mod 2^h) in
+        let c_i = a [\<oplus>] p_i in
+        enc_loop_func ((nat_to_bitstring h), n, h, m) (c_i # c) x_i))" using enc_loop_func.simps by auto
+
+  from mod_less_divisor assms(1) have "x * x mod n < n" by auto
+  
+  from this enc_loop_def Cons.IH assms(1) assms(2) 
+  have use_ia: "snd (enc_loop_func (nat_to_bitstring h, n, h, (a # m)) c x) = (x * x mod n) ^ (2 ^ length m) mod n"
+    by metis
+
+  have "(x * x) ^ (2 ^ length m) mod n = (x * x mod n) ^ (2 ^ length m) mod n"  
+    using power_mod[symmetric] by auto
+  from use_ia this have x_times_x:  "snd (enc_loop_func (nat_to_bitstring h, n, h, (a # m)) c x) = (x * x) ^ (2 ^ length m) mod n" 
+    by auto
+
+  have "(x * x) ^ (2 ^ length m) = x ^ (2 ^ length (a # m))"
+    by (auto simp add: power2_eq_square power_mult) 
+  from this x_times_x show ?case by auto
 qed
 
+corollary enc_loop_exp: 
+  assumes "n > 0" "h > 0" "x < n"
+  shows "snd (enc_loop (n, h, m) x) = x ^ (2 ^ (length m)) mod n"
+  by (auto intro: enc_loop_func_exp simp add: assms)
+
+theorem enc_x_exp: 
+  assumes "n > 0" "r < n" "h = nat \<lfloor>log 2 (log 2 n)\<rfloor>" "m_l = split m h"
+  shows "snd (encrypt n m r) = (r * r) ^ (2 ^ (length m_l + 1)) mod n"
+proof - 
+  from encrypt_def have encrypt_open: "snd (encrypt n m r) = snd (
+  let h = nat \<lfloor>log 2 (log 2 n)\<rfloor> in 
+  let m_l = split m h in 
+  let (x_0 :: nat) = (r * r) mod n in 
+  let (c, x_t) = enc_loop (n, h, m_l) x_0 in 
+  let x_t' = x_t * x_t mod n in 
+  (c, x_t'))" by auto
+  
+  have "r * r mod n < n" using mod_less_divisor assms(1) by auto
+
+  then have  "snd (
+  let h = nat \<lfloor>log 2 (log 2 n)\<rfloor> in 
+  let m_l = split m h in 
+  let (x_0 :: nat) = (r * r) mod n in 
+  enc_loop (n, h, m_l) x_0) = 
+  (let h = nat \<lfloor>log 2 (log 2 n)\<rfloor> in 
+  let m_l = split m h in 
+  let (x_0 :: nat) = (r * r) mod n in 
+  (x_0 ^ (2 ^ (length m_l)) mod n))" using assms(1) enc_loop.simps enc_loop_func_exp
+    by (metis)
+  from encrypt_open this have "snd (
+  let h = nat \<lfloor>log 2 (log 2 n)\<rfloor> in 
+  let m_l = split m h in 
+  let (x_0 :: nat) = (r * r) mod n in 
+  let (c, x_t) = enc_loop (n, h, m_l) x_0 in 
+  let x_t' = x_t * x_t mod n in 
+  (c, x_t'))
+  = 
+  (let h = nat \<lfloor>log 2 (log 2 n)\<rfloor> in 
+  let m_l = split m h in 
+  let (x_0 :: nat) = (r * r) mod n in 
+  let x_t' = x_0 ^ (2 ^ (length m_l)) mod n in 
+  x_t' * x_t' mod n)" 
+  using old.prod.exhaust snd_conv split_conv
+  by (smt (verit, best)) 
+
+  then have  "snd (
+  let h = nat \<lfloor>log 2 (log 2 n)\<rfloor> in 
+  let m_l = split m h in 
+  let (x_0 :: nat) = (r * r) mod n in 
+  let (c, x_t) = enc_loop (n, h, m_l) x_0 in 
+  let x_t' = x_t * x_t mod n in 
+  (c, x_t'))
+  = 
+  (((r * r) mod n) ^ (2 ^ (length m_l)) mod n) * (((r * r) mod n) ^ (2 ^ (length m_l)) mod n) mod n" 
+  using assms 
+  by meson
+
+  then have "snd (encrypt n m r) = (((r * r) mod n) ^ (2 ^ (length m_l)) mod n) * (((r * r) mod n) ^ (2 ^ (length m_l)) mod n) mod n" 
+    using encrypt_open by auto
+  then have "snd (encrypt n m r) = ((r * r) ^ (2 ^ (length m_l)) mod n) * ((r * r) ^ (2 ^ (length m_l)) mod n) mod n"
+    using power_mod by metis
+  then have encrypt_to_exp: "snd (encrypt n m r) = (((r * r) ^ (2 ^ (length m_l))) * ((r * r) ^ (2 ^ (length m_l)))) mod n"
+    by (simp add: mod_mult_eq) 
+
+  have "(((r * r) ^ (2 ^ (length m_l))) * ((r * r) ^ (2 ^ (length m_l)))) = (r * r) ^ (2 ^ (length m_l) + 2 ^ (length m_l))" 
+    using power_add[symmetric] by auto
+  then have "(((r * r) ^ (2 ^ (length m_l))) * ((r * r) ^ (2 ^ (length m_l)))) = (r * r) ^ (2 * 2 ^ (length m_l))"
+    by (simp add: mult_2)
+  then have "(((r * r) ^ (2 ^ (length m_l))) * ((r * r) ^ (2 ^ (length m_l)))) = (r * r) ^ (2 ^ (length m_l + 1))"
+    by auto
+  from this encrypt_to_exp show ?thesis by auto
 qed
+
 
 lemma same_x_0:
   assumes 
@@ -195,44 +281,7 @@ proof -
   
 
    show ?thesis sorry
-qed
-
-
-
-text "This formalization, using logarithms makes our proofs harder by introducing real numbers. Now,
-we try to formalize the floor of a logarithm's logarithm without logarithms"
-
-lemma
-  fixes n::nat
-  assumes "n \<ge> 1" "base > (Suc 0)" 
-  shows "floor_nat_log base n = \<lfloor>log base n\<rfloor>"
-  using assms(1)
-proof (induction n rule: dec_induct)
-    
-  case base \<comment> \<open>n = 1\<close>
-
-  have "floor_nat_log base 1 = floor_nat_log_rec base (Suc 0) 0 "  
-    by (auto simp add: floor_nat_log_def )
-  then have "floor_nat_log base 1 
-    = floor_nat_log_rec base ((Suc 0) div base) (Suc 0)"
-    using Suc_less_eq2 floor_nat_log_rec.simps(5) gr0_implies_Suc assms(2)
-    by (metis)
-  also have "(Suc 0) div base = 0" 
-    by (simp add: assms(2)) 
-  moreover have "floor_nat_log base 1 
-    = floor_nat_log_rec base 0 (Suc 0)"
-      using calculation by simp
-  then have  "floor_nat_log base 1  = 0 "
-    using Nat.lessE assms(2) floor_nat_log_rec.simps(4) 
-    by (metis)
-  then show ?case by simp
-next
-  case (step n)
-  have "\<lfloor>log base n\<rfloor> = \<lfloor>ln n / ln base\<rfloor>" by (auto simp add: log_def)
-  
-  
-  then show ?case sorry
-qed
+ qed
 
 
 lemma "enc_loop (21, 2, [[True, False], [True, False], [True, False]]) 9 = 
