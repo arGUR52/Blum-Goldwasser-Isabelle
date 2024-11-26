@@ -15,14 +15,14 @@ text "Here, we have all the auxillary lemmas used to prove the correctness of Bl
 text "Out proof of correctness will only consider x_i that are squared in modulo residue of p. We 
 Therefore prove that case only:"
 lemma eulers_criterion:
-  assumes "prime (p :: nat)" "odd p" "\<not> p dvd x" "(\<exists>y. [y^2 = x] (mod p))"
+  assumes "prime (p :: nat)" "odd p" "coprime p x" "(\<exists>y. [y^2 = x] (mod p))"
   shows "[x^((p - 1) div 2) = 1] (mod p)"
 proof -
   from assms(2) have even_p_minus_one: "even (p - 1)" by auto
   then have "(\<exists>k. p - 1 = 2 * k)"  by blast
   then obtain k where obtain_k:"p - 1 = 2 * k" by blast
-
-  from assms(1) assms(3) fermat_theorem 
+  from assms(1) assms(3) have "\<not> p dvd x"  by auto
+  from this assms(1) fermat_theorem 
   have "[x^(p - 1) = 1] (mod p)"
     by algebra
   then have "[x^((p - 1) div 2) * x^((p - 1) div 2) = 1] (mod p)" 
@@ -45,8 +45,10 @@ proof -
       by (metis mult.commute)
     then have y_minus_one: "[(y)^(p - 1) = -1] (mod p)"
       using even_p_minus_one by auto
+
     have "\<not> p dvd y" 
-      using assms(1) assms(3) cong_dvd_iff obtain_y pos2 prime_dvd_power_nat_iff by blast
+      using \<open>\<not> p dvd x\<close> assms(1) cong_dvd_iff obtain_y pos2 prime_dvd_power_nat_iff by blast
+
     then have "[(y)^(p - 1) = 1] (mod p)"
       using fermat_theorem assms(1) by auto
     from this y_minus_one have contradiction: "[(y)^(p - 1) = -1] (mod p) \<and> [(y)^(p - 1) = 1] (mod p)" by auto
