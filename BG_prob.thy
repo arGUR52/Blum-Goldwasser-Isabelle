@@ -1,0 +1,104 @@
+theory BG_prob imports
+  Main
+  BG_aux
+  BG_formalization
+  BG_correctness
+  "Crypto_Standards.Words"
+  "CryptHOL.CryptHOL"
+begin
+
+section "Formalization of Blum-Goldwasser cryptosystem in a probabilistic setting"
+
+type_synonym pub_key = nat
+type_synonym priv_key = "nat \<times> nat"
+
+subsection "Key generation"
+
+text "We generate a key by uniformally sampling a set of natural numbers that are congruent to 3 
+modulo 4. To ensure that \<open>p \<noteq> q\<close>, we remove the first selected number from the sample set."
+definition key_gen_prob :: "(pub_key \<times> priv_key) spmf"
+where 
+  "key_gen_prob = do {
+    let \<K> = {(p::nat). p mod 4 = 3 \<and> 2^3000 \<le> p \<and> p \<le> 2^4096};
+    p \<leftarrow> spmf_of_set \<K>; 
+    q \<leftarrow> spmf_of_set (\<K> - {p});
+    return_spmf (key_gen p q)
+  }"
+
+(*Problems:
+  1. The set is infinite. Hence, spmf_of_set won't work here
+    - Idea 1: Limit the set by a random number?
+    - Idea 2: Find another way to sample (however, with infinite amount of keys, we cannot find a
+    probability distribution with non-zero constant probabilities, which will force us to use a 
+    distribution that will prioritize some values more than the others.
+    - Idea 3: Since the sampling is not defined in any literature, we may write multiple key 
+    generation algorithms and try to prove the desired properties with these algorithms. Then, we 
+    prove the correctness/IND-CPA secureness for different sampling techniques which may also be 
+    interesting (for instance: with which sampling is it not IND-CPA-secure anymore?)
+  2. The probabilities change after we remove an element from the set. We may need to sample the 
+  tuple from a finite set of tuples of valid private keys, or maybe show that the probability 
+  distribution doesn't change in this case. Does it really change? Or does it matter that it changes?
+
+  Idea: Use the current standard (3000 according to Technical Guidelines for 
+  Federal Office for Information Security (BSI)) *)
+
+definition encrypt_prob :: "pub_key \<Rightarrow> bitstring \<Rightarrow> (bitstring list \<times> nat) spmf" where
+"encrypt_prob n m = do {
+   let \<Z> = {(z::nat). z < n \<and> coprime z n};
+   r \<leftarrow> spmf_of_set \<Z>;
+   return_spmf (encrypt_alt n m r)
+}"
+
+definition decrypt_prob :: "priv_key \<Rightarrow> (bitstring list \<times> nat) \<Rightarrow> bitstring spmf" where
+"decrypt_prob = (\<lambda>(p,q) c. return_spmf (decrypt_alt p q c))"
+
+theorem "do {
+  (n, p, q) \<leftarrow> key_gen_prob;
+  (c, x) \<leftarrow> (encrypt_prob n m);
+  decrypt_prob (p, q) (c, x)} = return_spmf m"
+proof - 
+  have  "do {
+  (n, p, q) \<leftarrow> key_gen_prob;
+  (c, x) \<leftarrow> (encrypt_prob n m);
+  decrypt_prob (p, q) (c, x)} = 
+  do {
+  (n, p, q) \<leftarrow> key_gen_prob;
+  (c, x) \<leftarrow> (encrypt_prob n m);
+  return_spmf (decrypt_alt p q (c, x))}" 
+    unfolding decrypt_prob_def
+    using split_conv
+    by auto
+  also have "... = 
+  do {
+  (n, p, q) \<leftarrow> key_gen_prob;
+  let \<Z> = {(z::nat). z < n \<and> coprime z n};
+  r \<leftarrow> spmf_of_set \<Z>;
+  (c, x) \<leftarrow>  return_spmf (encrypt_alt n m r);
+  return_spmf (decrypt_alt p q (c, x))}" 
+    unfolding encrypt_prob_def 
+    by auto
+  also have "... = 
+   do {
+  (n, p, q) \<leftarrow> key_gen_prob;
+  let \<Z> = {(z::nat). z < n \<and> coprime z n};
+  r \<leftarrow> spmf_of_set \<Z>;
+  return_spmf (decrypt_alt p q (encrypt_alt n m r))}" 
+    by auto
+  also have "... = 
+   do {
+  let \<K> = {(p::nat). p mod 4 = 3 \<and> 2^3000 \<le> p \<and> p \<le> 2^4096};
+   p \<leftarrow> spmf_of_set \<K>; 
+   q \<leftarrow> spmf_of_set (\<K> - {p});
+  (n, (p, q)) \<leftarrow> return_spmf (key_gen p q);
+  let \<Z> = {(z::nat). z < n \<and> coprime z n};
+  r \<leftarrow> spmf_of_set \<Z>;
+  return_spmf (decrypt_alt p q (encrypt_alt n m r))}" 
+    unfolding key_gen_prob_def
+    using key_gen_prob_def
+    sorry
+
+
+  then show "?thesis" sorry
+qed
+
+end

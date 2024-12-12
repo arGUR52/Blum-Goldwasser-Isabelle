@@ -6,9 +6,6 @@ begin
 
 text "Correctness proof"
 
-value "split [a, b, c, d, e, f] 2"
-
-
 lemma l_set_less_h: "l \<in> set (split m h) \<Longrightarrow> length l \<le> h"   
     proof (induction m h rule: split.induct)
       case (1 n)
@@ -23,7 +20,7 @@ lemma l_set_less_h: "l \<in> set (split m h) \<Longrightarrow> length l \<le> h"
     next
       case m_not_empty
       then have "\<exists>x xs. m = x # xs" by (auto iff: neq_Nil_conv)
-      then show ?thesis using 2 by (auto simp add: split.simps(2))
+      then show ?thesis using 2 by (auto)
     qed
     next
       case (3 x xs v)
@@ -410,7 +407,7 @@ proof -
   have pq_cong: "[(?uq * r_p * p + ?up * r_q * q) = (r ^ 2)] (mod (p * q))"
     using coprime_cong_mult by fastforce
   then have nat_cong: "nat ((?uq * r_p * p + ?up * r_q * q) mod (p * q)) = nat (r ^ 2) mod (p * q)" 
-    by (metis int_ops(7) nat_int of_nat_mod p_cong_u2 unique_euclidean_semiring_class.cong_def)
+    by (metis nat_int of_nat_mod  unique_euclidean_semiring_class.cong_def)
 
   have "r ^ 2 = nat (int (r ^ 2))" by presburger
   from this nat_cong have nat_eq: "nat ((?uq * r_p * p + ?up * r_q * q) mod (p * q)) =r ^ 2 mod (p * q)" 
@@ -517,8 +514,6 @@ next
   hence "enc_loop_func_list (nat_to_bitstring h, n, h, ?a' # c') x = a # m" by auto  
   then show ?case using c_obtain by auto
 qed
-
-text "unfinished - possibly trash"
 
 
 lemma same_length:
@@ -780,16 +775,16 @@ proof -
   have "decrypt_alt p q (encrypt_alt (p * q) m r) = decrypt_alt p q (c, x)"
     using obtain_c_opt1 obtain_x_opt1 by auto
 
-  then have "decrypt_alt p q (encrypt_alt (p * q) m r) =
+  also have "... =
     (case (c, x) of (c, x) \<Rightarrow>
        let u_p = x ^ calculate_exponent (length c) p mod p; 
            u_q = x ^ calculate_exponent (length c) q mod q;
            ((r_p, r_q), _) = euclid_ext (int p) (int q);
            x_0 = nat ((int u_q * r_p * int p + int u_p * r_q * int q) mod int (p * q));
            (m, x') = enc_loop_alt (p * q, nat \<lfloor>log 2 (log 2 (p * q))\<rfloor>, c) x_0
-       in merge_list m)" using decrypt_alt_def by auto
+       in merge_list m)" using decrypt_alt_def by force
 
-  then have "decrypt_alt p q (encrypt_alt (p * q) m r) = 
+  ultimately have "decrypt_alt p q (encrypt_alt (p * q) m r) = 
     (let u_p = x ^ (calculate_exponent (length c) p) mod p;
          u_q = x ^ (calculate_exponent (length c) q) mod q;
          ((r_p, r_q), _) = euclid_ext p q; 
@@ -877,6 +872,9 @@ proof -
   from this decrypt_merge show ?thesis by auto (*what? did i really finish it now???*)
  qed
 
+
+ text "Showing the equivalence of \<open>enc_loop\<close> and \<open>enc_loop_alt\<close>, which splits the job into two different 
+ functions, \<open>enc_loop_func_x\<close> and \<open>enc_loop_func_list\<close>."
 
 lemma enc_loop_func_exp: 
   assumes "n > 0" "x < n"
@@ -993,18 +991,82 @@ proof -
   from this encrypt_to_exp show ?thesis by auto
 qed
 
+lemma fst_enc_loop_eq_enc_between: "fst (enc_loop_func (f, n, h, m) c_acc x) = enc_loop_func_between (f, n, h, m) c_acc x"
+proof (induction m arbitrary: x c_acc)
+  case (Nil)
+  then show ?case by auto
+next
+  case (Cons a m)
+  have "fst (enc_loop_func (f, n, h, (a # m)) c_acc x) = fst (let x_i = x * x mod n in
+        let p_i = f (x_i mod 2^h) in
+        let c_i = a [\<oplus>] p_i in
+        enc_loop_func (f, n, h, m) (c_i # c_acc) x_i
+        )"  
+    by auto
+  then have "fst (enc_loop_func (f, n, h, (a # m)) c_acc x) = (let x_i = x * x mod n in
+        let p_i = f (x_i mod 2^h) in
+        let c_i = a [\<oplus>] p_i in
+        fst (enc_loop_func (f, n, h, m) (c_i # c_acc) x_i)
+        )" unfolding Let_def by auto
+  then have  "fst (enc_loop_func (f, n, h, (a # m)) c_acc x) = (let x_i = x * x mod n in
+        let p_i = f (x_i mod 2^h) in
+        let c_i = a [\<oplus>] p_i in
+        enc_loop_func_between (f, n, h, m) (c_i # c_acc) x_i
+        )" using Cons by auto
+  then show ?case by auto
+qed 
 
+lemma enc_betw_eq_enc_list:"enc_loop_func_between (f, n, h, m) c_acc x = rev c_acc @ (enc_loop_func_list (f, n, h, m) x)"
+proof (induction m arbitrary: x c_acc)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a m)
+  let ?c_i = "a [\<oplus>] f ((x * x mod n) mod 2^h)"
+  let ?x_i = "x * x mod n"
+  have "enc_loop_func_between (f, n, h, a # m) c_acc x =  (let x_i = x * x mod n in
+        let p_i = f (x_i mod 2^h) in
+        let c_i = a [\<oplus>] p_i in
+        enc_loop_func_between (f, n, h, m) (c_i # c_acc) x_i
+        )" by auto
+  hence "enc_loop_func_between (f, n, h, a # m) c_acc x = enc_loop_func_between (f, n, h, m) (?c_i # c_acc) ?x_i" 
+    unfolding Let_def by auto
+  hence "enc_loop_func_between (f, n, h, a # m) c_acc x = rev (?c_i # c_acc) @ enc_loop_func_list (f, n, h, m) ?x_i" 
+    using Cons by auto
+  hence "enc_loop_func_between (f, n, h, a # m) c_acc x = rev c_acc @ [?c_i] @ enc_loop_func_list (f, n, h, m) ?x_i"
+    using rev_def by auto
+  hence enc_loop_betw_def: "enc_loop_func_between (f, n, h, a # m) c_acc x = rev c_acc @ (?c_i # enc_loop_func_list (f, n, h, m) ?x_i)"
+    by auto
+  have "enc_loop_func_list (f, n, h, a # m) x = (let x_i = x * x mod n in
+        let p_i = f (x_i mod 2^h) in
+        let c_i = a [\<oplus>] p_i in
+        c_i # enc_loop_func_list (f, n, h, m) x_i
+        )" by auto
+  hence "enc_loop_func_list (f, n, h, a # m) x = ?c_i # enc_loop_func_list (f, n, h, m) (x * x mod n)"
+    unfolding Let_def by auto   
+  thus ?case  using enc_loop_betw_def unfolding Let_def by auto
+qed
 
+corollary fst_enc_eq_enc_list: "fst (enc_loop_func (f, n, h, m) [] x) = enc_loop_func_list (f, n, h, m) x" 
+  using enc_betw_eq_enc_list fst_enc_loop_eq_enc_between by auto
 
+corollary 
+  assumes "0 < n" "x < n"
+  shows "enc_loop (n, h, m) x = enc_loop_alt (n, h, m) x"
+  using enc_loop_x_enc_loop_normal fst_enc_eq_enc_list 
+proof - 
+  have "snd (enc_loop (n, h, m) x) = snd (enc_loop_func (nat_to_bitstring h, n, h, m) [] x)" 
+    by auto
+  then have snd_eq: "snd (enc_loop (n, h, m) x) = snd (enc_loop_alt (n, h, m) x)" 
+    using assms enc_loop_x_enc_loop_normal by auto
 
+  have "fst (enc_loop (n, h, m) x) = fst (enc_loop_func (nat_to_bitstring h, n, h, m) [] x)" 
+    by auto
+  then have "fst (enc_loop (n, h, m) x) = enc_loop_func_list (nat_to_bitstring h, n, h, m) x"
+    using fst_enc_eq_enc_list by auto
+  then have fst_eq: "fst (enc_loop (n, h, m) x) = fst (enc_loop_alt (n, h, m) x)" by auto
 
-
-
-
-
-
-
-
-
-
+  from fst_eq snd_eq show "?thesis" 
+    using prod.expand by blast 
+qed 
 end

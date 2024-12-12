@@ -6,9 +6,6 @@ begin
 
 text "Correctness proof"
 
-value "split [a, b, c, d, e, f] 2"
-
-
 lemma l_set_less_h: "l \<in> set (split m h) \<Longrightarrow> length l \<le> h"   
     proof (induction m h rule: split.induct)
       case (1 n)
@@ -23,7 +20,7 @@ lemma l_set_less_h: "l \<in> set (split m h) \<Longrightarrow> length l \<le> h"
     next
       case m_not_empty
       then have "\<exists>x xs. m = x # xs" by (auto iff: neq_Nil_conv)
-      then show ?thesis using 2 by (auto simp add: split.simps(2))
+      then show ?thesis using 2 by (auto)
     qed
     next
       case (3 x xs v)
@@ -33,7 +30,6 @@ lemma l_set_less_h: "l \<in> set (split m h) \<Longrightarrow> length l \<le> h"
       then have "l \<in> set ((take (Suc v) (x # xs)) # (split (drop (Suc v) (x # xs)) (Suc v)))"
         using 3(2) by auto
 
-      then have "l \<in> {(take (Suc v) (x # xs))} \<union> set (split (drop (Suc v) (x # xs)) (Suc v))" by auto
       then have "l = take (Suc v) (x # xs) \<or> l \<in> set (split (drop (Suc v) (x # xs)) (Suc v))" by auto
       then consider "l = (take (Suc v) (x # xs))" | "l \<in> set (split (drop (Suc v) (x # xs)) (Suc v))" by blast
       then show "length l \<le> Suc v"
@@ -411,7 +407,7 @@ proof -
   have pq_cong: "[(?uq * r_p * p + ?up * r_q * q) = (r ^ 2)] (mod (p * q))"
     using coprime_cong_mult by fastforce
   then have nat_cong: "nat ((?uq * r_p * p + ?up * r_q * q) mod (p * q)) = nat (r ^ 2) mod (p * q)" 
-    by (metis int_ops(7) nat_int of_nat_mod p_cong_u2 unique_euclidean_semiring_class.cong_def)
+    by (metis nat_int of_nat_mod  unique_euclidean_semiring_class.cong_def)
 
   have "r ^ 2 = nat (int (r ^ 2))" by presburger
   from this nat_cong have nat_eq: "nat ((?uq * r_p * p + ?up * r_q * q) mod (p * q)) =r ^ 2 mod (p * q)" 
@@ -519,8 +515,6 @@ next
   then show ?case using c_obtain by auto
 qed
 
-text "unfinished - possibly trash"
-
 
 lemma same_length:
   shows "length (enc_loop_func_list (nat_to_bitstring h, p * q, h, m_l) x_0) = length m_l"
@@ -546,6 +540,51 @@ next
     by metis 
   then show ?case using Cons by auto
 qed
+
+lemma merge_split: 
+  shows "h > 0 \<Longrightarrow> l = (split m h) \<Longrightarrow> merge_list l = m" 
+proof (induction m h arbitrary: l rule: split.induct)
+  case (1 n)
+  then show ?case by auto
+next
+  case (2 v va)
+  then show ?case by auto
+next
+  case (3 x xs v)
+  have "split (x # xs) (Suc v) = (take (Suc v) (x # xs)) # (split (drop (Suc v) (x # xs)) (Suc v))"
+    by (auto elim: split.elims)
+  assume assms: "0 < Suc v" "l = split (x # xs) (Suc v)"
+  then have l_def: "l =  (take (Suc v) (x # xs)) # (split (drop (Suc v) (x # xs)) (Suc v))" 
+    by auto
+  then have "\<exists>a l_r. l = a # l_r" by auto
+  then obtain a l_r where a_l_r_obtain: "l = a # l_r" by auto
+  from l_def this have "a # l_r = (take (Suc v) (x # xs)) # (split (drop (Suc v) (x # xs)) (Suc v))"
+    by auto
+  then have a_def: "a = (take (Suc v) (x # xs)) \<and> l_r = (split (drop (Suc v) (x # xs)) (Suc v))" 
+    by auto 
+  then have l_r_def: "l_r = (split (drop (Suc v) (x # xs)) (Suc v))" by auto
+  
+  from 3 have "0 < Suc v \<Longrightarrow>
+    l_r = split (drop (Suc v) (x # xs)) (Suc v) \<Longrightarrow> merge_list l_r = drop (Suc v) (x # xs)"
+    by auto
+  then have " l_r = split (drop (Suc v) (x # xs)) (Suc v) 
+    \<Longrightarrow> merge_list l_r = drop (Suc v) (x # xs)" using assms(1) by auto
+  then have merge_l_r: "merge_list l_r = drop (Suc v) (x # xs)" using l_r_def by auto
+
+  have "merge_list (a # l_r) = a @ merge_list l_r" using list.discI by auto
+  from this merge_l_r 
+  have "merge_list (a # l_r) = a @ (drop (Suc v) (x # xs))" by auto
+  then have "merge_list (a # l_r) = (take (Suc v) (x # xs)) @ (drop (Suc v) (x # xs))" 
+    using a_def by auto
+
+  then show ?case  
+    using a_l_r_obtain by auto
+qed
+
+corollary merge_split_in_place:
+  shows "h > 0 \<Longrightarrow>  merge_list (split m h) = m" 
+  using merge_split by auto
+
 
 theorem 
   assumes 
@@ -736,16 +775,16 @@ proof -
   have "decrypt_alt p q (encrypt_alt (p * q) m r) = decrypt_alt p q (c, x)"
     using obtain_c_opt1 obtain_x_opt1 by auto
 
-  then have "decrypt_alt p q (encrypt_alt (p * q) m r) =
+  also have "... =
     (case (c, x) of (c, x) \<Rightarrow>
        let u_p = x ^ calculate_exponent (length c) p mod p; 
            u_q = x ^ calculate_exponent (length c) q mod q;
            ((r_p, r_q), _) = euclid_ext (int p) (int q);
            x_0 = nat ((int u_q * r_p * int p + int u_p * r_q * int q) mod int (p * q));
            (m, x') = enc_loop_alt (p * q, nat \<lfloor>log 2 (log 2 (p * q))\<rfloor>, c) x_0
-       in merge_list m)" using decrypt_alt_def by auto
+       in merge_list m)" using decrypt_alt_def by force
 
-  then have "decrypt_alt p q (encrypt_alt (p * q) m r) = 
+  ultimately have "decrypt_alt p q (encrypt_alt (p * q) m r) = 
     (let u_p = x ^ (calculate_exponent (length c) p) mod p;
          u_q = x ^ (calculate_exponent (length c) q) mod q;
          ((r_p, r_q), _) = euclid_ext p q; 
@@ -824,26 +863,15 @@ proof -
   then have "fst (enc_loop_alt (p * q, (nat h), c) (r ^ 2 mod (p * q))) = (split m (nat h))" 
     using obtain_c_opt3 power2_eq_square[symmetric] by metis
   
-  then have "decrypt_alt p q (encrypt_alt (p * q) m r) = 
+  then have decrypt_merge: "decrypt_alt p q (encrypt_alt (p * q) m r) = 
     merge_list ((split m (nat h)))" using decrypt_eq_merge by auto
 
-  show ?thesis sorry
+  from h_gr_1 have "merge_list ((split m (nat h))) = m" 
+     using merge_split_in_place by auto
+
+  from this decrypt_merge show ?thesis by auto (*what? did i really finish it now???*)
  qed
 
-lemma merge_split: 
-  assumes "h > 0" "m \<noteq> []"
-  shows "l = (split m h) \<Longrightarrow> merge_list l = m" 
-proof (induction l)
-  case Nil
-  then have "m = []" by auto
-  then show ?case by auto
-next
-  case (Cons a m)
-  assume "merge_list (split m h) = m"
-  then have "a @ (merge_list (split m h)) = a @ m" by auto
-  then have "merge_list (a # (split m h)) = a # m" by auto
-  then show ?case sorry
-qed
 
 lemma enc_loop_func_exp: 
   assumes "n > 0" "x < n"
@@ -959,19 +987,5 @@ proof -
     by auto
   from this encrypt_to_exp show ?thesis by auto
 qed
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 end

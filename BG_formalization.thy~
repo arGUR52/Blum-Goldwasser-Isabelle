@@ -53,6 +53,45 @@ fun enc_loop_func
         enc_loop_func (f, n, h, m_rest) (c_i # c_acc) x_i
         )"
 
+
+
+fun enc_loop_func_between 
+  :: "((nat  => bitstring) \<times> nat \<times> nat \<times> bitstring list) \<Rightarrow> bitstring list \<Rightarrow> nat \<Rightarrow> bitstring list" 
+  where
+   "enc_loop_func_between (f, n, h, []) c_acc x = rev c_acc" |
+   "enc_loop_func_between (f, n, h, (m_i # m_rest)) c_acc x =
+        (let x_i = x * x mod n in
+        let p_i = f (x_i mod 2^h) in
+        let c_i = m_i [\<oplus>] p_i in
+        enc_loop_func_between (f, n, h, m_rest) (c_i # c_acc) x_i
+        )"
+
+
+lemma "fst (enc_loop_func (f, n, h, m) c_acc x) = enc_loop_func_between (f, n, h, m) c_acc x"
+proof (induction m arbitrary: x c_acc)
+  case (Nil)
+  then show ?case by auto
+next
+  case (Cons a m)
+  have "fst (enc_loop_func (f, n, h, (a # m)) c_acc x) = fst (let x_i = x * x mod n in
+        let p_i = f (x_i mod 2^h) in
+        let c_i = a [\<oplus>] p_i in
+        enc_loop_func (f, n, h, m) (c_i # c_acc) x_i
+        )"  
+    by auto
+  then have "fst (enc_loop_func (f, n, h, (a # m)) c_acc x) = (let x_i = x * x mod n in
+        let p_i = f (x_i mod 2^h) in
+        let c_i = a [\<oplus>] p_i in
+        fst (enc_loop_func (f, n, h, m) (c_i # c_acc) x_i)
+        )" unfolding Let_def by auto
+  then have  "fst (enc_loop_func (f, n, h, (a # m)) c_acc x) = (let x_i = x * x mod n in
+        let p_i = f (x_i mod 2^h) in
+        let c_i = a [\<oplus>] p_i in
+        enc_loop_func_between (f, n, h, m) (c_i # c_acc) x_i
+        )" using Cons by auto
+  then show ?case by auto
+qed 
+
 fun enc_loop_func_list 
   :: "((nat  => bitstring) \<times> nat \<times> nat \<times> bitstring list) \<Rightarrow> nat \<Rightarrow> bitstring list" 
   where
@@ -63,6 +102,34 @@ fun enc_loop_func_list
         let c_i = m_i [\<oplus>] p_i in
         c_i # enc_loop_func_list (f, n, h, m_rest) x_i
         )"
+
+lemma "enc_loop_func_between (f, n, h, m) c_acc x = rev c_acc @ (enc_loop_func_list (f, n, h, m) x)"
+proof (induction m arbitrary: x c_acc)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a m)
+  let ?c_i = "a [\<oplus>] f ((x * x mod n) mod 2^h)"
+  let ?x_i = "x * x mod n"
+  have "enc_loop_func_between (f, n, h, a # m) c_acc x =  (let x_i = x * x mod n in
+        let p_i = f (x_i mod 2^h) in
+        let c_i = a [\<oplus>] p_i in
+        enc_loop_func_between (f, n, h, m) (c_i # c_acc) x_i
+        )" by auto
+  then have "enc_loop_func_between (f, n, h, a # m) c_acc x = enc_loop_func_between (f, n, h, m) (?c_i # c_acc) ?x_i" 
+    unfolding Let_def by auto
+  then have "enc_loop_func_between (f, n, h, a # m) c_acc x = rev (?c_i # c_acc) @ enc_loop_func_list (f, n, h, m) ?x_i" 
+    using Cons by auto
+  then have "enc_loop_func_between (f, n, h, a # m) c_acc x = rev c_acc @ [?c_i] @ enc_loop_func_list (f, n, h, m) ?x_i"
+    using rev_def by auto
+  then have "enc_loop_func_between (f, n, h, a # m) c_acc x = rev c_acc @ (?c_i # enc_loop_func_list (f, n, h, m) ?x_i)"
+    by auto
+  then have "enc_loop_func_between (f, n, h, a # m) c_acc x = rev c_acc @  enc_loop_func_list (f, n, h, a # m) ?x_i"
+    using enc_loop_func_list.simps unfolding Let_def by sorry
+  then show ?case by auto
+qed
+
+
 fun enc_loop_func_x 
   :: "((nat  => bitstring) \<times> nat \<times> nat \<times> nat) \<Rightarrow> nat \<Rightarrow> nat" 
   where
@@ -166,17 +233,17 @@ definition decrypt :: "nat \<Rightarrow> nat \<Rightarrow> (bitstring list \<tim
   "decrypt p q tup = (case tup of (c, x) \<Rightarrow> 
    (let u_p = x ^ (calculate_exponent (length c) p) mod p in
     let u_q = x ^ (calculate_exponent (length c) q) mod q in
-    let ((r_p, r_q), _) = euclid_ext p q in
-    let x_0 = nat ((u_p * r_p * p + u_q * r_q * q) mod (p * q)) in
+    let ((r_p, r_q), _) = euclid_ext (int p) (int q) in
+    let x_0 = nat ((int u_p * r_p * int p + int u_p * r_q * int q) mod (p * q)) in
     let (m, x') = enc_loop (p * q, (nat \<lfloor>log 2 (log 2 (p * q))\<rfloor>) , c) x_0 in
     merge_list m))"
 
 definition decrypt_alt :: "nat \<Rightarrow> nat \<Rightarrow> (bitstring list \<times> nat) \<Rightarrow> bitstring" where
   "decrypt_alt p q tup = (case tup of (c, x) \<Rightarrow> 
-   (let u_p = x ^ (calculate_exponent (length c) p) in
-    let u_q = x ^ (calculate_exponent (length c) q) in
-    let ((r_p, r_q), _) = euclid_ext p q in
-    let x_0 = nat (u_p * r_p * p + u_q * r_q * q mod (p * q)) in
+   (let (u_p::nat) = x ^ (calculate_exponent (length c) p) mod p in
+    let (u_q::nat) = x ^ (calculate_exponent (length c) q) mod q in
+    let ((r_p, r_q), _) = euclid_ext (int p) (int q) in
+    let x_0 = nat ((u_q * r_p * p + u_p * r_q * q) mod int (p * q)) in
     let (m, x') = enc_loop_alt (p * q, (nat \<lfloor>log 2 (log 2 (p * q))\<rfloor>) , c) x_0 in
     merge_list m))"
 

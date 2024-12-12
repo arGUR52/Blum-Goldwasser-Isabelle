@@ -13,8 +13,8 @@ functions as parameters."
 section "Key generation"
 text "The key generation process normally picks out two positive integers congruent to 3 mod 4 
 (where these two integers are the private key) and multiplies the two to create the public key n."
-definition key_gen :: "nat \<Rightarrow> nat \<Rightarrow> nat" where 
-  "key_gen p q = p * q"
+definition key_gen :: "nat \<Rightarrow> nat \<Rightarrow> (nat \<times> (nat \<times> nat))" where 
+  "key_gen p q = (p * q, (p, q))"
 
 section "Encryption"
 
@@ -53,6 +53,22 @@ fun enc_loop_func
         enc_loop_func (f, n, h, m_rest) (c_i # c_acc) x_i
         )"
 
+
+
+fun enc_loop_func_between 
+  :: "((nat  => bitstring) \<times> nat \<times> nat \<times> bitstring list) \<Rightarrow> bitstring list \<Rightarrow> nat \<Rightarrow> bitstring list" 
+  where
+   "enc_loop_func_between (f, n, h, []) c_acc x = rev c_acc" |
+   "enc_loop_func_between (f, n, h, (m_i # m_rest)) c_acc x =
+        (let x_i = x * x mod n in
+        let p_i = f (x_i mod 2^h) in
+        let c_i = m_i [\<oplus>] p_i in
+        enc_loop_func_between (f, n, h, m_rest) (c_i # c_acc) x_i
+        )"
+
+
+
+
 fun enc_loop_func_list 
   :: "((nat  => bitstring) \<times> nat \<times> nat \<times> bitstring list) \<Rightarrow> nat \<Rightarrow> bitstring list" 
   where
@@ -63,6 +79,10 @@ fun enc_loop_func_list
         let c_i = m_i [\<oplus>] p_i in
         c_i # enc_loop_func_list (f, n, h, m_rest) x_i
         )"
+
+
+
+
 fun enc_loop_func_x 
   :: "((nat  => bitstring) \<times> nat \<times> nat \<times> nat) \<Rightarrow> nat \<Rightarrow> nat" 
   where
