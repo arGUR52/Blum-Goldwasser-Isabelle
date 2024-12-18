@@ -16,10 +16,10 @@ subsection "Key generation"
 
 text "We generate a key by uniformally sampling a set of natural numbers that are congruent to 3 
 modulo 4. To ensure that \<open>p \<noteq> q\<close>, we remove the first selected number from the sample set."
-definition key_gen_prob :: "(pub_key \<times> priv_key) spmf"
+definition key_gen_prob :: "nat \<Rightarrow> nat \<Rightarrow> (pub_key \<times> priv_key) spmf"
 where 
-  "key_gen_prob = do {
-    let \<K> = {(p::nat). p mod 4 = 3 \<and> 2^3000 \<le> p \<and> p \<le> 2^4096};
+  "key_gen_prob lower upper = do {
+    let \<K> = {(p::nat). prime p \<and>  p mod 4 = 3 \<and> lower \<le> p \<and> p \<le> upper};
     p \<leftarrow> spmf_of_set \<K>; 
     q \<leftarrow> spmf_of_set (\<K> - {p});
     return_spmf (key_gen p q)
@@ -52,16 +52,114 @@ definition encrypt_prob :: "pub_key \<Rightarrow> bitstring \<Rightarrow> (bitst
 definition decrypt_prob :: "priv_key \<Rightarrow> (bitstring list \<times> nat) \<Rightarrow> bitstring spmf" where
 "decrypt_prob = (\<lambda>(p,q) c. return_spmf (decrypt_alt p q c))"
 
-theorem "(do {
-  j \<leftarrow> key_gen_prob;
-  i \<leftarrow> encrypt_prob 0 m;
-  let m_i = decrypt_prob (p, q) ([], 0);
-  m_i }) "
+theorem "spmf (do {
+  (n, (p, q)) \<leftarrow> key_gen_prob l u;
+  (c, x) \<leftarrow> (encrypt_prob n m);
+  return_spmf (decrypt_alt p q (c, x) = m)}) True = 1"
 proof - 
-  have "decrypt_prob (p, q) c = decrypt_alt p q c"
+  have "do {
+  (n, (p, q)) \<leftarrow> key_gen_prob l u;
+  (c, x) \<leftarrow> (encrypt_prob n m);
+  return_spmf (decrypt_alt p q (c, x) = m)} = 
+  do {
+  (n, (p, q)) \<leftarrow> key_gen_prob l u;
+  let \<Z> = {(z::nat). z < n \<and> coprime z n};
+  r \<leftarrow> spmf_of_set \<Z>;
+  (c, x) \<leftarrow>  return_spmf (encrypt_alt n m r);
+  return_spmf (decrypt_alt p q (c, x) = m)}" 
+    unfolding encrypt_prob_def 
+    by auto
+  also have "... = 
+   do {
+  (n, (p, q)) \<leftarrow> key_gen_prob l u;
+  let \<Z> = {(z::nat). z < n \<and> coprime z n};
+  r \<leftarrow> spmf_of_set \<Z>;
+  return_spmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
+    by auto
+  also have "... = 
+   do {
+  (n, (p, q)) \<leftarrow> do {
+  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
+   p \<leftarrow> spmf_of_set \<K>; 
+   q \<leftarrow> spmf_of_set (\<K> - {p});
+  return_spmf (key_gen p q)
+  };
+  let \<Z> = {(z::nat). z < n \<and> coprime z n};
+  r \<leftarrow> spmf_of_set \<Z>;
+  return_spmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
+    unfolding key_gen_prob_def
+    by auto
+  also have "... = 
+   do {
+  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
+  p \<leftarrow> spmf_of_set \<K>; 
+  q \<leftarrow> spmf_of_set (\<K> - {p});
+  (n, (p, q)) \<leftarrow> return_spmf (key_gen p q);
+  let \<Z> = {(z::nat). z < n \<and> coprime z n};
+  r \<leftarrow> spmf_of_set \<Z>;
+  return_spmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
+    unfolding Let_def by auto 
+  also have "... = 
+   do {
+  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
+  p \<leftarrow> spmf_of_set \<K>; 
+  q \<leftarrow> spmf_of_set (\<K> - {p});
+  (n, (p, q)) \<leftarrow> return_spmf ((p * q, (p, q)));
+  let \<Z> = {(z::nat). z < n \<and> coprime z n};
+  r \<leftarrow> spmf_of_set \<Z>;
+  return_spmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
+    unfolding key_gen_def by auto
+ also have "... = 
+   do {
+  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
+  p \<leftarrow> spmf_of_set \<K>; 
+  q \<leftarrow> spmf_of_set (\<K> - {p});
+  let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
+  r \<leftarrow> spmf_of_set \<Z>;
+  return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}" 
+   by auto
+
+  from calculation have "do {
+  (n, (p, q)) \<leftarrow> key_gen_prob l u;
+  (c, x) \<leftarrow> (encrypt_prob n m);
+  return_spmf (decrypt_alt p q (c, x) = m)} 
+  = do {
+  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
+  p \<leftarrow> spmf_of_set \<K>; 
+  q \<leftarrow> spmf_of_set (\<K> - {p});
+  let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
+  r \<leftarrow> spmf_of_set \<Z>;
+  return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}" by auto
 
 
-  then have "?thesis" sorry
+  let ?\<K> = "{(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u}"
+  have "x \<in> ?\<K> \<Longrightarrow> prime x" 
+    by auto
+  
+
+  have spmf: "spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x = indicator ?\<K> x / card ?\<K>" 
+    using spmf_of_set by auto
+  have "(x \<notin> ?\<K>) = ((indicator ?\<K> x) = 0)" by auto
+  then have "(x \<notin> ?\<K>) = (spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x = 0)" 
+    using spmf by auto
+  then have x_in_k_iff: "(x \<in> ?\<K>) = (spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x > 0)" 
+    unfolding indicator_def by force
+  then have "(spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x > 0) \<Longrightarrow> prime x" by auto
+  from x_in_k_iff have "(spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x > 0) \<Longrightarrow> x mod 4 = 3" by auto
+
+
+  have spmf: "spmf (do {q \<leftarrow> spmf_of_set (?\<K> - {p}) ; return_spmf q}) x = indicator (?\<K> - {p}) x / card (?\<K> - {p})" 
+    using spmf_of_set by auto
+  have "(x \<notin> (?\<K> - {p})) = ((indicator (?\<K> - {p}) x) = 0)"
+    by (auto simp add: indicator_def)
+  then have "(x \<notin> (?\<K> - {p})) = (spmf (do {p \<leftarrow> spmf_of_set (?\<K> - {p}); return_spmf p}) x = 0)" 
+    using spmf by auto
+  then have x_in_k_iff: "(x \<in> (?\<K> - {p})) = (spmf (do {p \<leftarrow> spmf_of_set (?\<K> - {p}); return_spmf p}) x > 0)" 
+    unfolding indicator_def by force
+  then have "(spmf (do {p \<leftarrow> spmf_of_set (?\<K> - {p}); return_spmf p}) x > 0) \<Longrightarrow> prime x" by auto
+  from x_in_k_iff have "(spmf (do {p \<leftarrow> spmf_of_set (?\<K> - {p}); return_spmf p}) x > 0) \<Longrightarrow> x mod 4 = 3" by auto
+
+  then show "?thesis" sorry
 qed
 
 end
