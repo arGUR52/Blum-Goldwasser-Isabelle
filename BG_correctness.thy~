@@ -586,7 +586,7 @@ corollary merge_split_in_place:
   using merge_split by auto
 
 
-theorem 
+theorem correctness:
   assumes 
     "p mod 4 = 3" "q mod 4 = 3" (*pq_cong_3*)
     "prime p" "prime q" (*pq_prime*)

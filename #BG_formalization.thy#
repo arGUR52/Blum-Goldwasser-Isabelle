@@ -186,7 +186,7 @@ definition decrypt :: "nat \<Rightarrow> nat \<Rightarrow> (bitstring list \<tim
   "decrypt p q tup = (case tup of (c, x) \<Rightarrow> 
    (let u_p = x ^ (calculate_exponent (length c) p) mod p in
     let u_q = x ^ (calculate_exponent (length c) q) mod q in
-    let ((r_p, r_q), _) = euclid_ext (int p) (int q) in
+    let ((r_p, r_q), _) =euclid_ext (int p) (int q) in
     let x_0 = nat ((int u_p * r_p * int p + int u_p * r_q * int q) mod (p * q)) in
     let (m, x') = enc_loop (p * q, (nat \<lfloor>log 2 (log 2 (p * q))\<rfloor>) , c) x_0 in
     merge_list m))"

@@ -1,0 +1,7 @@
+theory BG_imports 
+  imports 
+    "Crypto_Standards.Words"
+    "CryptHOL.CryptHOL"
+begin
+
+end

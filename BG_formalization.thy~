@@ -13,8 +13,8 @@ functions as parameters."
 section "Key generation"
 text "The key generation process normally picks out two positive integers congruent to 3 mod 4 
 (where these two integers are the private key) and multiplies the two to create the public key n."
-definition key_gen :: "nat \<Rightarrow> nat \<Rightarrow> nat" where 
-  "key_gen p q = p * q"
+definition key_gen :: "nat \<Rightarrow> nat \<Rightarrow> (nat \<times> (nat \<times> nat))" where 
+  "key_gen p q = (p * q, (p, q))"
 
 section "Encryption"
 
@@ -67,30 +67,7 @@ fun enc_loop_func_between
         )"
 
 
-lemma "fst (enc_loop_func (f, n, h, m) c_acc x) = enc_loop_func_between (f, n, h, m) c_acc x"
-proof (induction m arbitrary: x c_acc)
-  case (Nil)
-  then show ?case by auto
-next
-  case (Cons a m)
-  have "fst (enc_loop_func (f, n, h, (a # m)) c_acc x) = fst (let x_i = x * x mod n in
-        let p_i = f (x_i mod 2^h) in
-        let c_i = a [\<oplus>] p_i in
-        enc_loop_func (f, n, h, m) (c_i # c_acc) x_i
-        )"  
-    by auto
-  then have "fst (enc_loop_func (f, n, h, (a # m)) c_acc x) = (let x_i = x * x mod n in
-        let p_i = f (x_i mod 2^h) in
-        let c_i = a [\<oplus>] p_i in
-        fst (enc_loop_func (f, n, h, m) (c_i # c_acc) x_i)
-        )" unfolding Let_def by auto
-  then have  "fst (enc_loop_func (f, n, h, (a # m)) c_acc x) = (let x_i = x * x mod n in
-        let p_i = f (x_i mod 2^h) in
-        let c_i = a [\<oplus>] p_i in
-        enc_loop_func_between (f, n, h, m) (c_i # c_acc) x_i
-        )" using Cons by auto
-  then show ?case by auto
-qed 
+
 
 fun enc_loop_func_list 
   :: "((nat  => bitstring) \<times> nat \<times> nat \<times> bitstring list) \<Rightarrow> nat \<Rightarrow> bitstring list" 
@@ -103,31 +80,7 @@ fun enc_loop_func_list
         c_i # enc_loop_func_list (f, n, h, m_rest) x_i
         )"
 
-lemma "enc_loop_func_between (f, n, h, m) c_acc x = rev c_acc @ (enc_loop_func_list (f, n, h, m) x)"
-proof (induction m arbitrary: x c_acc)
-  case Nil
-  then show ?case by auto
-next
-  case (Cons a m)
-  let ?c_i = "a [\<oplus>] f ((x * x mod n) mod 2^h)"
-  let ?x_i = "x * x mod n"
-  have "enc_loop_func_between (f, n, h, a # m) c_acc x =  (let x_i = x * x mod n in
-        let p_i = f (x_i mod 2^h) in
-        let c_i = a [\<oplus>] p_i in
-        enc_loop_func_between (f, n, h, m) (c_i # c_acc) x_i
-        )" by auto
-  then have "enc_loop_func_between (f, n, h, a # m) c_acc x = enc_loop_func_between (f, n, h, m) (?c_i # c_acc) ?x_i" 
-    unfolding Let_def by auto
-  then have "enc_loop_func_between (f, n, h, a # m) c_acc x = rev (?c_i # c_acc) @ enc_loop_func_list (f, n, h, m) ?x_i" 
-    using Cons by auto
-  then have "enc_loop_func_between (f, n, h, a # m) c_acc x = rev c_acc @ [?c_i] @ enc_loop_func_list (f, n, h, m) ?x_i"
-    using rev_def by auto
-  then have "enc_loop_func_between (f, n, h, a # m) c_acc x = rev c_acc @ (?c_i # enc_loop_func_list (f, n, h, m) ?x_i)"
-    by auto
-  then have "enc_loop_func_between (f, n, h, a # m) c_acc x = rev c_acc @  enc_loop_func_list (f, n, h, a # m) ?x_i"
-    using enc_loop_func_list.simps unfolding Let_def by sorry
-  then show ?case by auto
-qed
+
 
 
 fun enc_loop_func_x 

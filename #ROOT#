@@ -1,0 +1,9 @@
+session BlumGoldwasser = "BG_imports" +
+  options [document = pdf, document_output = "output"]
+theories [document = false]
+    BG_aux
+  theories
+    BG_formalization
+    BG_correctness
+  document_files
+    "root.tex"

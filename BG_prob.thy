@@ -3,9 +3,6 @@ theory BG_prob imports
   BG_aux
   BG_formalization
   BG_correctness
-  "Crypto_Standards.Words"
-  "CryptHOL.CryptHOL"
-  "ABY3_Protocols.Spmf_Common"
 begin
 
 section "Formalization of Blum-Goldwasser cryptosystem in a probabilistic setting"
@@ -17,13 +14,13 @@ subsection "Key generation"
 
 text "We generate a key by uniformally sampling a set of natural numbers that are congruent to 3 
 modulo 4. To ensure that \<open>p \<noteq> q\<close>, we remove the first selected number from the sample set."
-definition key_gen_prob :: "nat \<Rightarrow> nat \<Rightarrow> (pub_key \<times> priv_key) spmf"
+definition key_gen_prob :: "nat \<Rightarrow> nat \<Rightarrow> (pub_key \<times> priv_key) pmf"
 where 
   "key_gen_prob lower upper = do {
     let \<K> = {(p::nat). prime p \<and>  p mod 4 = 3 \<and> lower \<le> p \<and> p \<le> upper};
-    p \<leftarrow> spmf_of_set \<K>; 
-    q \<leftarrow> spmf_of_set (\<K> - {p});
-    return_spmf (key_gen p q)
+    p \<leftarrow> pmf_of_set \<K>; 
+    q \<leftarrow> pmf_of_set (\<K> - {p});
+    return_pmf (key_gen p q)
   }"
 
 (*Problems:
@@ -43,128 +40,141 @@ where
   Idea: Use the current standard (3000 according to Technical Guidelines for 
   Federal Office for Information Security (BSI)) *)
 
-definition encrypt_prob :: "pub_key \<Rightarrow> bitstring \<Rightarrow> (bitstring list \<times> nat) spmf" where
+definition encrypt_prob :: "pub_key \<Rightarrow> bitstring \<Rightarrow> (bitstring list \<times> nat) pmf" where
 "encrypt_prob n m = do {
    let \<Z> = {(z::nat). z < n \<and> coprime z n};
-   r \<leftarrow> spmf_of_set \<Z>;
-   return_spmf (encrypt_alt n m r)
+   r \<leftarrow> pmf_of_set \<Z>;
+   return_pmf (encrypt_alt n m r)
 }"
 
-definition decrypt_prob :: "priv_key \<Rightarrow> (bitstring list \<times> nat) \<Rightarrow> bitstring spmf" where
-"decrypt_prob = (\<lambda>(p,q) c. return_spmf (decrypt_alt p q c))"
+
+definition decrypt_prob :: "priv_key \<Rightarrow> (bitstring list \<times> nat) \<Rightarrow> bitstring pmf" where
+"decrypt_prob = (\<lambda>(p,q) c. return_pmf (decrypt_alt p q c))"
+
 
 theorem
-  assumes "m \<noteq> []"
-  shows  "spmf (do {
+  assumes 
+    "m \<noteq> []"
+    "card {(p::nat). prime p \<and>  p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u} > 1" 
+  shows  "pmf (do {
   (n, (p, q)) \<leftarrow> key_gen_prob l u;
   (c, x) \<leftarrow> (encrypt_prob n m);
-  return_spmf (decrypt_alt p q (c, x) = m)}) True = 1"
+  return_pmf (decrypt_alt p q (c, x) = m)}) True = 1"
 proof - 
   have "do {
   (n, (p, q)) \<leftarrow> key_gen_prob l u;
   (c, x) \<leftarrow> (encrypt_prob n m);
-  return_spmf (decrypt_alt p q (c, x) = m)} = 
+  return_pmf (decrypt_alt p q (c, x) = m)} = 
   do {
   (n, (p, q)) \<leftarrow> key_gen_prob l u;
   let \<Z> = {(z::nat). z < n \<and> coprime z n};
-  r \<leftarrow> spmf_of_set \<Z>;
-  (c, x) \<leftarrow>  return_spmf (encrypt_alt n m r);
-  return_spmf (decrypt_alt p q (c, x) = m)}" 
+  r \<leftarrow> pmf_of_set \<Z>;
+  (c, x) \<leftarrow>  return_pmf (encrypt_alt n m r);
+  return_pmf (decrypt_alt p q (c, x) = m)}" 
     unfolding encrypt_prob_def 
-    by auto
-  also have "... = 
+    by (auto simp add: bind_assoc_pmf)
+
+  also have "... =
    do {
   (n, (p, q)) \<leftarrow> key_gen_prob l u;
   let \<Z> = {(z::nat). z < n \<and> coprime z n};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
-    by auto
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
+    by (auto simp add: bind_return_pmf)
+
   also have "... = 
    do {
   (n, (p, q)) \<leftarrow> do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-   p \<leftarrow> spmf_of_set \<K>; 
-   q \<leftarrow> spmf_of_set (\<K> - {p});
-  return_spmf (key_gen p q)
+   p \<leftarrow> pmf_of_set \<K>; 
+   q \<leftarrow> pmf_of_set (\<K> - {p});
+  return_pmf (key_gen p q)
   };
   let \<Z> = {(z::nat). z < n \<and> coprime z n};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
     unfolding key_gen_prob_def
     by auto
+
   also have "... = 
    do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
-  (n, (p, q)) \<leftarrow> return_spmf (key_gen p q);
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
+  (n, (p, q)) \<leftarrow> return_pmf (key_gen p q);
   let \<Z> = {(z::nat). z < n \<and> coprime z n};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
-    unfolding Let_def by auto 
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
+    unfolding Let_def 
+    by (auto simp add: bind_assoc_pmf)
+
   also have "... = 
    do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
-  (n, (p, q)) \<leftarrow> return_spmf ((p * q, (p, q)));
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
+  (n, (p, q)) \<leftarrow> return_pmf ((p * q, (p, q)));
   let \<Z> = {(z::nat). z < n \<and> coprime z n};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
-    unfolding key_gen_def by auto
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt n m r) = m)}" 
+    unfolding key_gen_def 
+    by auto
+
  also have "... = 
    do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}" 
-   by auto
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}" 
+   by (auto simp add: bind_return_pmf)
 
   from calculation have "do {
   (n, (p, q)) \<leftarrow> key_gen_prob l u;
   (c, x) \<leftarrow> (encrypt_prob n m);
-  return_spmf (decrypt_alt p q (c, x) = m)} 
+  return_pmf (decrypt_alt p q (c, x) = m)} 
   = do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}" by auto
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}" 
+    using key_gen_def
+    by (auto simp add: bind_return_pmf)
 
-  then have "
-  spmf (do {
+  then have step_1: "
+  pmf (do {
   (n, (p, q)) \<leftarrow> key_gen_prob l u;
   (c, x) \<leftarrow> (encrypt_prob n m);
-  return_spmf (decrypt_alt p q (c, x) = m)})
+  return_pmf (decrypt_alt p q (c, x) = m)})
   = 
-  spmf (do {
+  pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)})"
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)})"
     by auto
 
 then have "
-  spmf (do {
+  pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)})
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)})
   = 
-  spmf (do {
+  pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf ((prime p \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m)\<and> (\<not>prime p \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m))})"
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf ((prime p \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m)\<and> (\<not>prime p \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m))})"
   by auto
 
   
@@ -180,277 +190,337 @@ then have "
       \<and> (\<not>(prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q \<and> m \<noteq> []) \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m))
         " 
     by auto
+ 
+  let ?\<K> = "{(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u}"
+  let ?\<Z> = "{(z::nat). z < p * q \<and> coprime z (p * q)}"
 
-
-
-  have demorgan: "\<not>(prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q \<and> m \<noteq> []) 
-  = (\<not>prime p \<or> \<not>prime q \<or> p mod 4 \<noteq> 3 \<or> q mod 4 \<noteq> 3 \<or> r \<ge> p * q \<or> \<not>coprime r (p * q) \<or> p = q \<or> m = [])" 
+  have \<K>_finite: "finite ?\<K>" 
+    by auto
+  have \<K>_not_empty: "?\<K> \<noteq> {}"
+    using assms(2)
+    by fastforce
+  from \<K>_finite \<K>_not_empty have \<K>_finite': "finite' ?\<K>" 
+    by auto
+  
+  have \<K>_not_empty_after_p: "\<And>p. ?\<K> - {p} \<noteq> {}"
+    using assms(2) 
+    by (metis (no_types, lifting) \<K>_finite' card_Diff_singleton_if card_gt_0_iff zero_less_diff)
+  then have \<K>_card_after_p: "card ?\<K> - 1 > 0" 
+    using assms(2) by linarith
+  from this \<K>_finite have \<K>_finite_after_p: "\<And>p. finite (?\<K> - {p})" 
     by auto
 
-  then have demorgan_imply: "(\<not>(prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q \<and> m \<noteq> []) \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m) 
-  = ((\<not>prime p \<or> \<not>prime q \<or> p mod 4 \<noteq> 3 \<or> q mod 4 \<noteq> 3 \<or> r \<ge> p * q \<or> \<not>coprime r (p * q) \<or> p = q \<or> m = []) \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m)" 
-    by auto 
 
   then have "
-  spmf (do {
+  pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) True
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) True
   = 
-  spmf (do {
+  pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf ((((prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q \<and> m \<noteq> []) \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m)
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf ((((prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q \<and> m \<noteq> []) \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m)
       \<and> (\<not>(prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q \<and> m \<noteq> []) \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m)))}) 
   True"
     using iff_rule[symmetric]
     by metis
   then have "
-  ...
-  = 
-  spmf (do {
+  pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf ((\<not>(prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q \<and> m \<noteq> []) \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m))}) 
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) True
+  = 
+  pmf (do {
+  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
+  let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf ((\<not>(prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q \<and> m \<noteq> []) \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m))}) 
   True"
     using correctness  
     by algebra
 
   then have "
-  ...
-  = 
-  spmf (do {
+  pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf ((prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q \<and> m \<noteq> []) \<or> decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) 
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) True
+  = 
+  pmf (do {
+  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
+  let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf ((prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q \<and> m \<noteq> []) \<or> decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) 
   True" 
     by linarith
   then have "
-  ...
-  = 
-  spmf (do {
+  pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf ((prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q) \<or> decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) 
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) True
+  = 
+  pmf (do {
+  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
+  let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf ((prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q) \<or> decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) 
   True" 
-    using assms by auto
+    using assms(1) by auto
 
   then have  "
-  ...
-  = 
-  spmf (do {
+  pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf ((((p \<in> \<K> \<and> q \<in> \<K> - {p} \<and> r \<in> \<Z>) \<longrightarrow> prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q)
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) True
+  = 
+  pmf (do {
+  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
+  let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf ((((p \<in> \<K> \<and> q \<in> \<K> - {p} \<and> r \<in> \<Z>) \<longrightarrow> prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q)
  \<and> (\<not>(p \<in> \<K> \<and> q \<in> \<K> - {p} \<and> r \<in> \<Z>) \<longrightarrow> prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q))
  \<or> decrypt_alt p q (encrypt_alt (p * q) m r) = m)})
   True" 
     by metis
 
   then have  "
-  ...
-  = 
-  spmf (do {
+  pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (((\<not>(p \<in> \<K> \<and> q \<in> \<K> - {p} \<and> r \<in> \<Z>) \<longrightarrow> prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q))
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) True
+  = 
+  pmf (do {
+  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
+  let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (((\<not>(p \<in> \<K> \<and> q \<in> \<K> - {p} \<and> r \<in> \<Z>) \<longrightarrow> prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q))
  \<or> decrypt_alt p q (encrypt_alt (p * q) m r) = m)})
   True" 
     by simp
 
   then have spmf_last:  "
-  ...
-  = 
-  spmf (do {
+  pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf ((((p \<in> \<K> \<and> q \<in> \<K> - {p} \<and> r \<in> \<Z>) \<or> (prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q)))
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) True
+  = 
+  pmf (do {
+  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
+  let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (((p \<in> \<K> \<and> q \<in> \<K> - {p} \<and> r \<in> \<Z>) \<or> (prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q))
  \<or> decrypt_alt p q (encrypt_alt (p * q) m r) = m)})
   True" 
     by linarith
 
-  (*Sorry for the mess from here on: i'm trying my best!!!*)
-  have "A \<longrightarrow> A \<or> B"
-    by auto
-  then have "spmf (return_spmf (A \<longrightarrow> A \<or> B)) True = 1" 
-    by auto
-  then have "spmf (return_spmf (A \<longrightarrow> A \<or> B)) True = 1"
-
-
-  then have " 
-  spmf (do {
-  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  let ?pmf = "(do {
+  p \<leftarrow> pmf_of_set ?\<K>; 
+  q \<leftarrow> pmf_of_set (?\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (p \<in> \<K> \<and> q \<in> \<K> - {p} \<and> r \<in> \<Z>)})
-  True = 1 \<Longrightarrow> 
-  spmf (do {
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (((p \<in> ?\<K> \<and> q \<in> ?\<K> - {p} \<and> r \<in> \<Z>) \<or> (prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q))
+ \<or> decrypt_alt p q (encrypt_alt (p * q) m r) = m)})"
+
+  have replace_pmf: "pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf ((((p \<in> \<K> \<and> q \<in> \<K> - {p} \<and> r \<in> \<Z>) \<or> (prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q)))
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (((p \<in> \<K> \<and> q \<in> \<K> - {p} \<and> r \<in> \<Z>) \<or> (prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q))
  \<or> decrypt_alt p q (encrypt_alt (p * q) m r) = m)})
-  True = 1" 
-  by sorry
+  True = pmf ?pmf True" 
+  by metis
+ 
   
+  let ?pmf_fun = "(\<lambda>p. pmf_of_set (?\<K> - {p}) \<bind>
+                  (\<lambda>q. let \<Z> = {z. z < p * q \<and> coprime z (p * q)}
+                      in pmf_of_set \<Z> \<bind>
+                         (\<lambda>r. return_pmf
+                               ((p \<in> ?\<K> \<and> q \<in> ?\<K> - {p} \<and> r \<in> \<Z> \<or>
+                                 prime p \<and>
+                                 prime q \<and>
+                                 p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q) \<or>
+                                decrypt_alt p q (encrypt_alt (p * q) m r) = m))))"
 
-
+  let ?pmf_fun' = "(\<lambda>p. pmf_of_set (?\<K> - {p}) \<bind>
+                  (\<lambda>q. let \<Z> = {z. z < p * q \<and> coprime z (p * q)}
+                      in pmf_of_set \<Z> \<bind>
+                         (\<lambda>r. return_pmf
+                               ((q \<in> ?\<K> - {p} \<and> r \<in> \<Z> \<or>
+                                 prime q \<and>
+                                q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q) \<or>
+                                decrypt_alt p q (encrypt_alt (p * q) m r) = m))))"
   
+  have step_3: "pmf ?pmf True = (\<Sum>xa\<in>?\<K>. pmf (?pmf_fun xa) True) / real (card ?\<K>)"
+    using pmf_bind_pmf_of_set \<K>_finite \<K>_not_empty
+    by (simp add: pmf_bind_pmf_of_set)
+  then have "pmf ?pmf True = (\<Sum>xa\<in>?\<K>. pmf (?pmf_fun' xa) True) / real (card ?\<K>)"
+    by auto
 
-  have "decrypt_alt p q (encrypt_alt (p * q) m r) = m = 
-  ((prime p \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m)\<and> (\<not>prime p \<longrightarrow> decrypt_alt p q (encrypt_alt (p * q) m r) = m))"
+  let ?pmf_fun'' = "\<lambda>xa. (\<lambda>q. let \<Z> = {z. z < xa * q \<and> coprime z (xa * q)}
+                      in pmf_of_set \<Z> \<bind>
+                         (\<lambda>r. return_pmf
+                               ((q \<in> ?\<K> - {xa} \<and> r \<in> \<Z> \<or>
+                                 prime q \<and>
+                                 q mod 4 = 3 \<and> r < xa * q \<and> coprime r (xa * q) \<and> xa \<noteq> q) \<or>
+                                decrypt_alt xa q (encrypt_alt (xa * q) m r) = m)))"
+
+  have "\<And>xa. (pmf (?pmf_fun' xa) True) = 
+     (\<Sum>xb\<in>(?\<K> - {xa}). pmf ((?pmf_fun'' xa) xb) True) / real (card (?\<K> - {xa}))"
+  using \<K>_finite_after_p \<K>_not_empty_after_p
+  by (auto simp add: pmf_bind_pmf_of_set)
+
+  then have "(\<Sum>xa\<in>?\<K>. pmf (?pmf_fun' xa) True) = 
+     (\<Sum>xa\<in>?\<K>. (\<Sum>xb\<in>(?\<K> - {xa}). pmf ((?pmf_fun'' xa) xb) True) / real (card (?\<K> - {xa})))" 
+    by auto
+
+  then have "(\<Sum>xa\<in>?\<K>. pmf (?pmf_fun' xa) True) =
+    (\<Sum>xa\<in>?\<K>. (\<Sum>xb\<in>(?\<K> - {xa}). pmf ((?pmf_fun'' xa) xb) True)) / real (card ?\<K> - 1)" 
+   by (simp add: sum_divide_distrib)  
+
+  then have q_escaped: "(\<Sum>xa\<in>?\<K>. pmf (?pmf_fun' xa) True) / real (card ?\<K>) = 
+     (\<Sum>xa\<in>?\<K>. (\<Sum>xb\<in>(?\<K> - {xa}). pmf ((?pmf_fun'' xa) xb) True)) / (real (card ?\<K> - 1) * real (card ?\<K>))"
   by auto
 
+  let ?pmf_fun''' = "\<lambda>xa. \<lambda>q. (let \<Z> = {z. z < xa * q \<and> coprime z (xa * q)}
+                      in pmf_of_set \<Z> \<bind>
+                         (\<lambda>r. return_pmf
+                               ((r \<in> \<Z> \<or>
+                                 r < xa * q \<and> coprime r (xa * q) \<and> xa \<noteq> q) \<or>
+                               decrypt_alt xa q (encrypt_alt (xa * q) m r) = m)))"
+  
+  let ?\<Z> = "\<lambda>xa xb. {(z::nat). z < xa * xb \<and> coprime z (xa * xb)}"
 
+  let ?pmf_fun_3alt = "\<lambda>xa. \<lambda>q. (pmf_of_set (?\<Z> xa q) \<bind>
+                         (\<lambda>r. return_pmf
+                               ((r \<in> (?\<Z> xa q) \<or>
+                                 r < xa * q \<and> coprime r (xa * q) \<and> xa \<noteq> q) \<or>
+                               decrypt_alt xa q (encrypt_alt (xa * q) m r) = m)))"
+  
+  let ?pmf_fun_4 = "\<lambda>xa xb. 
+                          (\<lambda>r. (return_pmf
+                            ((r \<in> (?\<Z> xa xb) \<or>
+                             r < xa * xb \<and> coprime r (xa * xb) \<and> xa \<noteq> xb) \<or>
+                         decrypt_alt xa xb (encrypt_alt (xa * xb) m r) = m)))"
 
-
-  have "(decrypt_alt p q (encrypt_alt (p * q) m r) = m) \<Longrightarrow> 
-  (prime p \<longrightarrow> (decrypt_alt p q (encrypt_alt (p * q) m r) = m))"
+  from q_escaped have ff: "(\<Sum>xa\<in>?\<K>. pmf (?pmf_fun' xa) True) / real (card ?\<K>) = 
+     (\<Sum>xa\<in>?\<K>. (\<Sum>xb\<in>(?\<K> - {xa}). pmf ((?pmf_fun''' xa) xb) True)) / (real (card ?\<K> - 1) * real (card ?\<K>))"
     by auto
 
-  let ?\<K> = "{(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u}"
+  have "\<And>p q. (p \<in> ?\<K> \<and> q \<in> ?\<K>) \<longrightarrow> 2 \<le> p \<and> 2 \<le> q" 
+    by auto
+  then have "\<And>p q. (p \<in> ?\<K> \<and> q \<in> ?\<K>) \<longrightarrow> 1 < p * q" 
+   using One_nat_def mem_Collect_eq one_less_mult prime_gt_1_nat
+   by (metis (mono_tags, lifting))
+  then have "\<And>p q. (p \<in> ?\<K> \<and> q \<in> ?\<K>) \<longrightarrow> 1 < p * q \<and> coprime 1 (p * q)" 
+    by auto
+  then have "\<And>p q. (p \<in> ?\<K> \<and> q \<in> ?\<K>) \<longrightarrow> 1 \<in> ?\<Z> p q"  
+    by blast
+  then have \<Z>_not_empty: "\<And>p q. (p \<in> ?\<K> \<and> q \<in> ?\<K>) \<Longrightarrow> ?\<Z> p q \<noteq> {}" 
+    by blast
 
-  let ?p = "spmf_of_set ?\<K>"
-  let ?q = "?p \<bind> (\<lambda>p. spmf_of_set (?\<K> - {p}))"
-  let ?\<Z> = "{(z::nat). z < p * q \<and> coprime z (p * q)}"
-  let ?Z = "\<lambda>p q. "
+  have \<Z>_finite: "\<And>p q. finite (?\<Z> p q)" 
+    by auto 
 
-  have "
-  spmf (do {
+  have "\<And>xa xb xc. xc \<in> (?\<Z> xa xb)
+     \<Longrightarrow> pmf ((?pmf_fun_4 xa xb) xc) True = 1" by auto 
+  
+  have "\<And>xa xb. xa \<in> ?\<K> \<Longrightarrow> xb \<in> ?\<K> - {xa} \<Longrightarrow> pmf (?pmf_fun_3alt xa xb) True = 
+    (\<Sum>xc\<in>(?\<Z> xa xb). pmf ((?pmf_fun_4 xa xb) xc) True) / real (card (?\<Z> xa xb))" 
+    using \<Z>_finite \<Z>_not_empty
+    by (simp add: pmf_bind_pmf_of_set)
+  then have "\<And>xa xb. xa \<in> ?\<K> \<Longrightarrow> xb \<in> ?\<K> - {xa} \<Longrightarrow> pmf (?pmf_fun_3alt xa xb) True = 
+    (\<Sum>xc\<in>(?\<Z> xa xb). 1) / real (card (?\<Z> xa xb))" 
+    by auto
+  then have "\<And>xa xb. xa \<in> ?\<K> \<Longrightarrow> xb \<in> ?\<K> - {xa} \<Longrightarrow> pmf (?pmf_fun_3alt xa xb) True = 
+    (card (?\<Z> xa xb)) / (card (?\<Z> xa xb))" 
+    by auto
+  then have "\<And>xa xb. xa \<in> ?\<K> \<Longrightarrow> xb \<in> ?\<K> - {xa} \<Longrightarrow> pmf (?pmf_fun_3alt xa xb) True = 1" 
+    using \<Z>_not_empty
+    by auto
+
+  from ff this have 
+    "(\<Sum>xa\<in>?\<K>. pmf (?pmf_fun' xa) True) / real (card ?\<K>) = 
+     (\<Sum>xa\<in>?\<K>. (\<Sum>xb\<in>(?\<K> - {xa}). 1)) / (real (card ?\<K> - 1) * real (card ?\<K>))"
+    by auto
+  then have  
+    "(\<Sum>xa\<in>?\<K>. pmf (?pmf_fun' xa) True) / real (card ?\<K>) = 
+     (\<Sum>xa\<in>?\<K>. (card ?\<K> - 1)) / (real (card ?\<K> - 1) * real (card ?\<K>))"
+    by auto
+  then have
+    "(\<Sum>xa\<in>?\<K>. pmf (?pmf_fun' xa) True) / real (card ?\<K>) = 
+    ((card ?\<K>) * (card ?\<K> - 1)) / ((card ?\<K> - 1) * (card ?\<K>))"
+    by auto
+  then have step_4: "(\<Sum>xa\<in>?\<K>. pmf (?pmf_fun' xa) True) / real (card ?\<K>) = 1"
+    using \<K>_not_empty \<K>_card_after_p div_self
+    by auto
+
+  from step_1 spmf_last
+  have "pmf (do {
+  (n, (p, q)) \<leftarrow> key_gen_prob l u;
+  (c, x) \<leftarrow> (encrypt_prob n m);
+  return_pmf (decrypt_alt p q (c, x) = m)}) True
+  = pmf (do {
   let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
+  p \<leftarrow> pmf_of_set \<K>; 
+  q \<leftarrow> pmf_of_set (\<K> - {p});
   let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) True =
-  spmf (do {
-  p \<leftarrow> spmf_of_set ?\<K>; 
-  q \<leftarrow> spmf_of_set (?\<K> - {p});
-  let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) True  
-  "
-    unfolding Let_def
-    by auto
-  then have "
-  spmf (do {
-  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  q \<leftarrow> spmf_of_set (\<K> - {p});
-  let \<Z> = {(z::nat). z < p * q \<and> coprime z (p * q)};
-  r \<leftarrow> spmf_of_set \<Z>;
-  return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)}) True = 
-  spmf (spmf_of_set ?\<K> \<bind> (
-  \<lambda>p. (spmf_of_set (?\<K> - {p}) \<bind> (
-  \<lambda>q. (spmf_of_set {(z::nat). z < p * q \<and> coprime z (p * q)}) \<bind> (
-  \<lambda>r. (return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m))))))) True
-  "
-    by auto
-  then have "
-  spmf (spmf_of_set ?\<K> \<bind> (
-  \<lambda>p. (spmf_of_set (?\<K> - {p}) \<bind> (
-  \<lambda>q. (spmf_of_set {(z::nat). z < p * q \<and> coprime z (p * q)}) \<bind> (
-  \<lambda>r. (return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m))))))) True =
-  spmf (
-  \<lambda>p. (spmf_of_set (?\<K> - {p}) \<bind> (
-  \<lambda>q. (spmf_of_set {(z::nat). z < p * q \<and> coprime z (p * q)}) \<bind> (
-  \<lambda>r. (return_spmf (decrypt_alt p q (encrypt_alt (p * q) m r) = m)))))) True"
-    using spmf_of_set_def bind_def
-    by 
-
-
-
-  have spmf: "spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x = indicator ?\<K> x / card ?\<K>" 
-    using spmf_of_set by auto
-  have "(x \<notin> ?\<K>) = ((indicator ?\<K> x) = 0)" by auto
-  then have "(x \<notin> ?\<K>) = (spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x = 0)" 
-    using spmf by auto
-  then have x_in_k_iff: "(x \<in> ?\<K>) = (spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x > 0)" 
-    unfolding indicator_def by force
-  then have "(spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x > 0) \<Longrightarrow> prime x" by auto
-
-  then have "\<not>prime p \<Longrightarrow> spmf (do {
-  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  return_spmf p}) p = 0" 
-    by (simp add: spmf_of_set)
-  have "prime p \<Longrightarrow> spmf (do {
-  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  return_spmf p}) p \<ge> 0" 
-    using x_in_k_iff
+  r \<leftarrow> pmf_of_set \<Z>;
+  return_pmf (((p \<in> \<K> \<and> q \<in> \<K> - {p} \<and> r \<in> \<Z>) \<or> (prime p \<and> prime q \<and> p mod 4 = 3 \<and> q mod 4 = 3 \<and> r < p * q \<and> coprime r (p * q) \<and> p \<noteq> q))
+ \<or> decrypt_alt p q (encrypt_alt (p * q) m r) = m)})
+  True" 
     by auto
 
-  have "\<not>prime p \<Longrightarrow> spmf (cond_spmf (do {
-  let \<K> = {(p::nat). prime p \<and> p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u};
-  p \<leftarrow> spmf_of_set \<K>; 
-  return_spmf p}) 
-  ({p | (p::nat). prime p})) p = 0"
-    using cond_spmf_def by auto
+  then have "pmf (do {
+  (n, (p, q)) \<leftarrow> key_gen_prob l u;
+  (c, x) \<leftarrow> (encrypt_prob n m);
+  return_pmf (decrypt_alt p q (c, x) = m)}) True = 
+  (\<Sum>xa\<in>?\<K>. pmf (?pmf_fun xa) True) / real (card ?\<K>)"
+   using step_3 replace_pmf
+   by presburger
 
-  have "
-  \<lbrakk>p mod 4 = 3; q mod 4 = 3;
-   prime p; prime q;
-   r < p * q; m \<noteq> [];
-   coprime r (p * q); p \<noteq> q\<rbrakk> \<Longrightarrow>
-  decrypt_alt p q (encrypt_alt (p * q) m r) = m"
-    using correctness 
+  then show ?thesis 
+    using step_4
     by auto
-
-
-
-  have spmf: "spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x = indicator ?\<K> x / card ?\<K>" 
-    using spmf_of_set by auto
-  have "(x \<notin> ?\<K>) = ((indicator ?\<K> x) = 0)" by auto
-  then have "(x \<notin> ?\<K>) = (spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x = 0)" 
-    using spmf by auto
-  then have x_in_k_iff: "(x \<in> ?\<K>) = (spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x > 0)" 
-    unfolding indicator_def by force
-  then have "(spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x > 0) \<Longrightarrow> prime x" by auto
-  from x_in_k_iff have "(spmf (do {p \<leftarrow> spmf_of_set ?\<K>; return_spmf p}) x > 0) \<Longrightarrow> x mod 4 = 3" by auto
-
-
-  have spmf: "spmf (do {q \<leftarrow> spmf_of_set (?\<K> - {p}) ; return_spmf q}) x = indicator (?\<K> - {p}) x / card (?\<K> - {p})" 
-    using spmf_of_set by auto
-  have "(x \<notin> (?\<K> - {p})) = ((indicator (?\<K> - {p}) x) = 0)"
-    by (auto simp add: indicator_def)
-  then have "(x \<notin> (?\<K> - {p})) = (spmf (do {p \<leftarrow> spmf_of_set (?\<K> - {p}); return_spmf p}) x = 0)" 
-    using spmf by auto
-  then have x_in_k_iff: "(x \<in> (?\<K> - {p})) = (spmf (do {p \<leftarrow> spmf_of_set (?\<K> - {p}); return_spmf p}) x > 0)" 
-    unfolding indicator_def by force
-  then have "(spmf (do {p \<leftarrow> spmf_of_set (?\<K> - {p}); return_spmf p}) x > 0) \<Longrightarrow> prime x" by auto
-  then have "(spmf (do {p \<leftarrow> spmf_of_set (?\<K> - {p}); return_spmf (prime p)})) True = 1" sorry
-  (*I CAN'T DO THIS?!*)
-
-  then show "?thesis" sorry
 qed
+
+
 
 end

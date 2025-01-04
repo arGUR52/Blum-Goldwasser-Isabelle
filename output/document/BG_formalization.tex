@@ -1,0 +1,446 @@
+%
+\begin{isabellebody}%
+\setisabellecontext{BG{\isacharunderscore}{\kern0pt}formalization}%
+%
+\isadelimtheory
+%
+\endisadelimtheory
+%
+\isatagtheory
+\isacommand{theory}\isamarkupfalse%
+\ BG{\isacharunderscore}{\kern0pt}formalization\ \isakeyword{imports}\isanewline
+\ \ Main\isanewline
+\ \ BG{\isacharunderscore}{\kern0pt}aux\isanewline
+\ \ {\isachardoublequoteopen}CryptHOL{\isachardot}{\kern0pt}CryptHOL{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}Crypto{\isacharunderscore}{\kern0pt}Standards{\isachardot}{\kern0pt}Words{\isachardoublequoteclose}\isanewline
+\isakeyword{begin}%
+\endisatagtheory
+{\isafoldtheory}%
+%
+\isadelimtheory
+%
+\endisadelimtheory
+%
+\isadelimdocument
+%
+\endisadelimdocument
+%
+\isatagdocument
+%
+\isamarkupsection{Introduction%
+}
+\isamarkuptrue%
+%
+\endisatagdocument
+{\isafolddocument}%
+%
+\isadelimdocument
+%
+\endisadelimdocument
+%
+\begin{isamarkuptext}%
+In this theory, our goal is to formalize the Blum-Goldwasser cryptosystem in a deterministic 
+setting. Hence, all the variables that are to be sampled from an oracle are given to the following
+functions as parameters.%
+\end{isamarkuptext}\isamarkuptrue%
+%
+\isadelimdocument
+%
+\endisadelimdocument
+%
+\isatagdocument
+%
+\isamarkupsection{Key generation%
+}
+\isamarkuptrue%
+%
+\endisatagdocument
+{\isafolddocument}%
+%
+\isadelimdocument
+%
+\endisadelimdocument
+%
+\begin{isamarkuptext}%
+The key generation process normally picks out two positive integers congruent to 3 mod 4 
+(where these two integers are the private key) and multiplies the two to create the public key n.%
+\end{isamarkuptext}\isamarkuptrue%
+\isacommand{definition}\isamarkupfalse%
+\ key{\isacharunderscore}{\kern0pt}gen\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ {\isacharparenleft}{\kern0pt}nat\ {\isasymtimes}\ {\isacharparenleft}{\kern0pt}nat\ {\isasymtimes}\ nat{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\ \isakeyword{where}\ \isanewline
+\ \ {\isachardoublequoteopen}key{\isacharunderscore}{\kern0pt}gen\ p\ q\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ q{\isacharcomma}{\kern0pt}\ {\isacharparenleft}{\kern0pt}p{\isacharcomma}{\kern0pt}\ q{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}%
+\isadelimdocument
+%
+\endisadelimdocument
+%
+\isatagdocument
+%
+\isamarkupsection{Encryption%
+}
+\isamarkuptrue%
+%
+\endisatagdocument
+{\isafolddocument}%
+%
+\isadelimdocument
+%
+\endisadelimdocument
+%
+\begin{isamarkuptext}%
+Before formalizing the encryption process, we define our bitstrings as follows:%
+\end{isamarkuptext}\isamarkuptrue%
+\isacommand{type{\isacharunderscore}{\kern0pt}synonym}\isamarkupfalse%
+\ bitstring\ {\isacharequal}{\kern0pt}\ {\isachardoublequoteopen}bool\ list{\isachardoublequoteclose}%
+\begin{isamarkuptext}%
+This means that we represent bitstrings as a list of boolean values, True for 1 and False for
+0. The bitstrings are represented from most significant to least significant in the list (i.e.
+44 = 101011 = [True, False, True, False, True, True]).%
+\end{isamarkuptext}\isamarkuptrue%
+%
+\begin{isamarkuptext}%
+We then need a function to split our plaintext message into h-bit blocks. We define the 
+following function for this reason:%
+\end{isamarkuptext}\isamarkuptrue%
+\isacommand{fun}\isamarkupfalse%
+\ split\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}bitstring\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ bitstring\ list{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
+\ \ {\isachardoublequoteopen}split\ {\isacharbrackleft}{\kern0pt}{\isacharbrackright}{\kern0pt}\ n\ {\isacharequal}{\kern0pt}\ {\isacharbrackleft}{\kern0pt}{\isacharbrackright}{\kern0pt}{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\isanewline
+\ \ {\isachardoublequoteopen}split\ m\ {\isadigit{0}}\ {\isacharequal}{\kern0pt}\ {\isacharbrackleft}{\kern0pt}{\isacharbrackright}{\kern0pt}{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\isanewline
+\ \ {\isachardoublequoteopen}split\ m\ n\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}take\ n\ m{\isacharparenright}{\kern0pt}\ {\isacharhash}{\kern0pt}\ {\isacharparenleft}{\kern0pt}split\ {\isacharparenleft}{\kern0pt}drop\ n\ m{\isacharparenright}{\kern0pt}\ n{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}%
+\begin{isamarkuptext}%
+The function takes the first n elements from the message, puts it to the head of the resulting 
+list, and goes on with splitting the rest.%
+\end{isamarkuptext}\isamarkuptrue%
+%
+\begin{isamarkuptext}%
+We define the loop in the encryption as a recursive function. This function takes the nat-to
+-bit conversion function as a parameter:%
+\end{isamarkuptext}\isamarkuptrue%
+\isacommand{fun}\isamarkupfalse%
+\ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func\ \isanewline
+\ \ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}{\isacharparenleft}{\kern0pt}{\isacharparenleft}{\kern0pt}nat\ \ {\isacharequal}{\kern0pt}{\isachargreater}{\kern0pt}\ bitstring{\isacharparenright}{\kern0pt}\ {\isasymtimes}\ nat\ {\isasymtimes}\ nat\ {\isasymtimes}\ bitstring\ list{\isacharparenright}{\kern0pt}\ {\isasymRightarrow}\ bitstring\ list\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ {\isacharparenleft}{\kern0pt}bitstring\ list\ {\isasymtimes}\ nat{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\ \isanewline
+\ \ \isakeyword{where}\isanewline
+\ \ \ {\isachardoublequoteopen}enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func\ {\isacharparenleft}{\kern0pt}f{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ {\isacharbrackleft}{\kern0pt}{\isacharbrackright}{\kern0pt}{\isacharparenright}{\kern0pt}\ c{\isacharunderscore}{\kern0pt}acc\ x\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}rev\ c{\isacharunderscore}{\kern0pt}acc{\isacharcomma}{\kern0pt}\ x{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\isanewline
+\ \ \ {\isachardoublequoteopen}enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func\ {\isacharparenleft}{\kern0pt}f{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ {\isacharparenleft}{\kern0pt}m{\isacharunderscore}{\kern0pt}i\ {\isacharhash}{\kern0pt}\ m{\isacharunderscore}{\kern0pt}rest{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}\ c{\isacharunderscore}{\kern0pt}acc\ x\ {\isacharequal}{\kern0pt}\isanewline
+\ \ \ \ \ \ \ \ {\isacharparenleft}{\kern0pt}let\ x{\isacharunderscore}{\kern0pt}i\ {\isacharequal}{\kern0pt}\ x\ {\isacharasterisk}{\kern0pt}\ x\ mod\ n\ in\isanewline
+\ \ \ \ \ \ \ \ let\ p{\isacharunderscore}{\kern0pt}i\ {\isacharequal}{\kern0pt}\ f\ {\isacharparenleft}{\kern0pt}x{\isacharunderscore}{\kern0pt}i\ mod\ {\isadigit{2}}{\isacharcircum}{\kern0pt}h{\isacharparenright}{\kern0pt}\ in\isanewline
+\ \ \ \ \ \ \ \ let\ c{\isacharunderscore}{\kern0pt}i\ {\isacharequal}{\kern0pt}\ xor{\isacharunderscore}{\kern0pt}list\ m{\isacharunderscore}{\kern0pt}i\ p{\isacharunderscore}{\kern0pt}i\ in\isanewline
+\ \ \ \ \ \ \ \ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func\ {\isacharparenleft}{\kern0pt}f{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ m{\isacharunderscore}{\kern0pt}rest{\isacharparenright}{\kern0pt}\ {\isacharparenleft}{\kern0pt}c{\isacharunderscore}{\kern0pt}i\ {\isacharhash}{\kern0pt}\ c{\isacharunderscore}{\kern0pt}acc{\isacharparenright}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}i\isanewline
+\ \ \ \ \ \ \ \ {\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isacommand{fun}\isamarkupfalse%
+\ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}between\ \isanewline
+\ \ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}{\isacharparenleft}{\kern0pt}{\isacharparenleft}{\kern0pt}nat\ \ {\isacharequal}{\kern0pt}{\isachargreater}{\kern0pt}\ bitstring{\isacharparenright}{\kern0pt}\ {\isasymtimes}\ nat\ {\isasymtimes}\ nat\ {\isasymtimes}\ bitstring\ list{\isacharparenright}{\kern0pt}\ {\isasymRightarrow}\ bitstring\ list\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ bitstring\ list{\isachardoublequoteclose}\ \isanewline
+\ \ \isakeyword{where}\isanewline
+\ \ \ {\isachardoublequoteopen}enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}between\ {\isacharparenleft}{\kern0pt}f{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ {\isacharbrackleft}{\kern0pt}{\isacharbrackright}{\kern0pt}{\isacharparenright}{\kern0pt}\ c{\isacharunderscore}{\kern0pt}acc\ x\ {\isacharequal}{\kern0pt}\ rev\ c{\isacharunderscore}{\kern0pt}acc{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\isanewline
+\ \ \ {\isachardoublequoteopen}enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}between\ {\isacharparenleft}{\kern0pt}f{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ {\isacharparenleft}{\kern0pt}m{\isacharunderscore}{\kern0pt}i\ {\isacharhash}{\kern0pt}\ m{\isacharunderscore}{\kern0pt}rest{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}\ c{\isacharunderscore}{\kern0pt}acc\ x\ {\isacharequal}{\kern0pt}\isanewline
+\ \ \ \ \ \ \ \ {\isacharparenleft}{\kern0pt}let\ x{\isacharunderscore}{\kern0pt}i\ {\isacharequal}{\kern0pt}\ x\ {\isacharasterisk}{\kern0pt}\ x\ mod\ n\ in\isanewline
+\ \ \ \ \ \ \ \ let\ p{\isacharunderscore}{\kern0pt}i\ {\isacharequal}{\kern0pt}\ f\ {\isacharparenleft}{\kern0pt}x{\isacharunderscore}{\kern0pt}i\ mod\ {\isadigit{2}}{\isacharcircum}{\kern0pt}h{\isacharparenright}{\kern0pt}\ in\isanewline
+\ \ \ \ \ \ \ \ let\ c{\isacharunderscore}{\kern0pt}i\ {\isacharequal}{\kern0pt}\ xor{\isacharunderscore}{\kern0pt}list\ m{\isacharunderscore}{\kern0pt}i\ p{\isacharunderscore}{\kern0pt}i\ in\isanewline
+\ \ \ \ \ \ \ \ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}between\ {\isacharparenleft}{\kern0pt}f{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ m{\isacharunderscore}{\kern0pt}rest{\isacharparenright}{\kern0pt}\ {\isacharparenleft}{\kern0pt}c{\isacharunderscore}{\kern0pt}i\ {\isacharhash}{\kern0pt}\ c{\isacharunderscore}{\kern0pt}acc{\isacharparenright}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}i\isanewline
+\ \ \ \ \ \ \ \ {\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isacommand{fun}\isamarkupfalse%
+\ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}list\ \isanewline
+\ \ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}{\isacharparenleft}{\kern0pt}{\isacharparenleft}{\kern0pt}nat\ \ {\isacharequal}{\kern0pt}{\isachargreater}{\kern0pt}\ bitstring{\isacharparenright}{\kern0pt}\ {\isasymtimes}\ nat\ {\isasymtimes}\ nat\ {\isasymtimes}\ bitstring\ list{\isacharparenright}{\kern0pt}\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ bitstring\ list{\isachardoublequoteclose}\ \isanewline
+\ \ \isakeyword{where}\isanewline
+\ \ \ {\isachardoublequoteopen}enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}list\ {\isacharparenleft}{\kern0pt}f{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ {\isacharbrackleft}{\kern0pt}{\isacharbrackright}{\kern0pt}{\isacharparenright}{\kern0pt}\ x\ {\isacharequal}{\kern0pt}\ {\isacharbrackleft}{\kern0pt}{\isacharbrackright}{\kern0pt}{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\isanewline
+\ \ \ {\isachardoublequoteopen}enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}list\ {\isacharparenleft}{\kern0pt}f{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ {\isacharparenleft}{\kern0pt}m{\isacharunderscore}{\kern0pt}i\ {\isacharhash}{\kern0pt}\ m{\isacharunderscore}{\kern0pt}rest{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}\ x\ {\isacharequal}{\kern0pt}\isanewline
+\ \ \ \ \ \ \ \ {\isacharparenleft}{\kern0pt}let\ x{\isacharunderscore}{\kern0pt}i\ {\isacharequal}{\kern0pt}\ x\ {\isacharasterisk}{\kern0pt}\ x\ mod\ n\ in\isanewline
+\ \ \ \ \ \ \ \ let\ p{\isacharunderscore}{\kern0pt}i\ {\isacharequal}{\kern0pt}\ f\ {\isacharparenleft}{\kern0pt}x{\isacharunderscore}{\kern0pt}i\ mod\ {\isadigit{2}}{\isacharcircum}{\kern0pt}h{\isacharparenright}{\kern0pt}\ in\isanewline
+\ \ \ \ \ \ \ \ let\ c{\isacharunderscore}{\kern0pt}i\ {\isacharequal}{\kern0pt}\ xor{\isacharunderscore}{\kern0pt}list\ m{\isacharunderscore}{\kern0pt}i\ p{\isacharunderscore}{\kern0pt}i\ in\isanewline
+\ \ \ \ \ \ \ \ c{\isacharunderscore}{\kern0pt}i\ {\isacharhash}{\kern0pt}\ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}list\ {\isacharparenleft}{\kern0pt}f{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ m{\isacharunderscore}{\kern0pt}rest{\isacharparenright}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}i\isanewline
+\ \ \ \ \ \ \ \ {\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isacommand{fun}\isamarkupfalse%
+\ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}x\ \isanewline
+\ \ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}{\isacharparenleft}{\kern0pt}{\isacharparenleft}{\kern0pt}nat\ \ {\isacharequal}{\kern0pt}{\isachargreater}{\kern0pt}\ bitstring{\isacharparenright}{\kern0pt}\ {\isasymtimes}\ nat\ {\isasymtimes}\ nat\ {\isasymtimes}\ nat{\isacharparenright}{\kern0pt}\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ nat{\isachardoublequoteclose}\ \isanewline
+\ \ \isakeyword{where}\isanewline
+\ \ \ {\isachardoublequoteopen}enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}x\ {\isacharparenleft}{\kern0pt}f{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ t{\isacharparenright}{\kern0pt}\ x\ {\isacharequal}{\kern0pt}\ x\ {\isacharcircum}{\kern0pt}\ {\isacharparenleft}{\kern0pt}{\isadigit{2}}\ {\isacharcircum}{\kern0pt}\ t{\isacharparenright}{\kern0pt}\ mod\ n{\isachardoublequoteclose}%
+\begin{isamarkuptext}%
+A simple function to convert a bit represented by a natural number to a bit represented by a 
+boolean value:%
+\end{isamarkuptext}\isamarkuptrue%
+\isacommand{fun}\isamarkupfalse%
+\ nat{\isacharunderscore}{\kern0pt}to{\isacharunderscore}{\kern0pt}bit\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat\ {\isasymRightarrow}\ bool{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
+\ \ case{\isacharunderscore}{\kern0pt}{\isadigit{0}}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat{\isacharunderscore}{\kern0pt}to{\isacharunderscore}{\kern0pt}bit\ {\isadigit{0}}\ {\isacharequal}{\kern0pt}\ False{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\ \isanewline
+\ \ case{\isacharunderscore}{\kern0pt}{\isadigit{1}}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat{\isacharunderscore}{\kern0pt}to{\isacharunderscore}{\kern0pt}bit\ {\isacharparenleft}{\kern0pt}Suc\ {\isadigit{0}}{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ True{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\isanewline
+\ \ case{\isacharunderscore}{\kern0pt}greater{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat{\isacharunderscore}{\kern0pt}to{\isacharunderscore}{\kern0pt}bit\ {\isacharparenleft}{\kern0pt}Suc\ {\isacharparenleft}{\kern0pt}Suc\ n{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ False{\isachardoublequoteclose}%
+\begin{isamarkuptext}%
+The function gives False for anything other than True.%
+\end{isamarkuptext}\isamarkuptrue%
+%
+\begin{isamarkuptext}%
+We finally define a function to convert a natural number to a bitstring, with the help of 
+nat_to_bits.%
+\end{isamarkuptext}\isamarkuptrue%
+\isacommand{definition}\isamarkupfalse%
+\ nat{\isacharunderscore}{\kern0pt}to{\isacharunderscore}{\kern0pt}bitstring\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ bitstring{\isachardoublequoteclose}\ \isakeyword{where}\ \isanewline
+\ \ {\isachardoublequoteopen}nat{\isacharunderscore}{\kern0pt}to{\isacharunderscore}{\kern0pt}bitstring\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}{\isasymlambda}l\ n{\isachardot}{\kern0pt}\ map\ {\isacharparenleft}{\kern0pt}nat{\isacharunderscore}{\kern0pt}to{\isacharunderscore}{\kern0pt}bit{\isacharparenright}{\kern0pt}\ {\isacharparenleft}{\kern0pt}nat{\isacharunderscore}{\kern0pt}to{\isacharunderscore}{\kern0pt}bits{\isacharunderscore}{\kern0pt}len\ n\ l{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}%
+\begin{isamarkuptext}%
+Abstracting away from accumulators and conversion functions:%
+\end{isamarkuptext}\isamarkuptrue%
+\isacommand{fun}\isamarkupfalse%
+\ enc{\isacharunderscore}{\kern0pt}loop\ \isanewline
+\ \ \ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}{\isacharparenleft}{\kern0pt}nat\ {\isasymtimes}\ nat\ {\isasymtimes}\ bitstring\ list{\isacharparenright}{\kern0pt}\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ {\isacharparenleft}{\kern0pt}bitstring\ list\ {\isasymtimes}\ nat{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\ \isanewline
+\ \ \ \isakeyword{where}\isanewline
+\ \ \ {\isachardoublequoteopen}enc{\isacharunderscore}{\kern0pt}loop\ {\isacharparenleft}{\kern0pt}n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ m{\isacharparenright}{\kern0pt}\ x\ \isanewline
+\ \ \ \ {\isacharequal}{\kern0pt}\ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func\ {\isacharparenleft}{\kern0pt}nat{\isacharunderscore}{\kern0pt}to{\isacharunderscore}{\kern0pt}bitstring\ h{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ m{\isacharparenright}{\kern0pt}\ {\isacharbrackleft}{\kern0pt}{\isacharbrackright}{\kern0pt}\ x{\isachardoublequoteclose}\isanewline
+\isanewline
+\isacommand{fun}\isamarkupfalse%
+\ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}alt\ \isanewline
+\ \ \ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}{\isacharparenleft}{\kern0pt}nat\ {\isasymtimes}\ nat\ {\isasymtimes}\ bitstring\ list{\isacharparenright}{\kern0pt}\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ {\isacharparenleft}{\kern0pt}bitstring\ list\ {\isasymtimes}\ nat{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\ \isanewline
+\ \ \ \isakeyword{where}\isanewline
+\ \ \ {\isachardoublequoteopen}enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}alt\ {\isacharparenleft}{\kern0pt}n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ m{\isacharparenright}{\kern0pt}\ x\ \isanewline
+\ \ \ \ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}list\ {\isacharparenleft}{\kern0pt}nat{\isacharunderscore}{\kern0pt}to{\isacharunderscore}{\kern0pt}bitstring\ h{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ m{\isacharparenright}{\kern0pt}\ x{\isacharcomma}{\kern0pt}\ \isanewline
+\ \ \ \ \ \ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}func{\isacharunderscore}{\kern0pt}x\ {\isacharparenleft}{\kern0pt}nat{\isacharunderscore}{\kern0pt}to{\isacharunderscore}{\kern0pt}bitstring\ h{\isacharcomma}{\kern0pt}\ n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ length\ m{\isacharparenright}{\kern0pt}\ x{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}%
+\begin{isamarkuptext}%
+At last, the encryption function:%
+\end{isamarkuptext}\isamarkuptrue%
+\isacommand{definition}\isamarkupfalse%
+\ encrypt\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat\ {\isasymRightarrow}\ bitstring\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ {\isacharparenleft}{\kern0pt}bitstring\ list\ {\isasymtimes}\ nat{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
+\ \ {\isachardoublequoteopen}encrypt\ n\ m\ r\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}\isanewline
+\ \ let\ h\ {\isacharequal}{\kern0pt}\ nat\ {\isasymlfloor}log\ {\isadigit{2}}\ {\isacharparenleft}{\kern0pt}log\ {\isadigit{2}}\ n{\isacharparenright}{\kern0pt}{\isasymrfloor}\ in\ \isanewline
+\ \ let\ m{\isacharunderscore}{\kern0pt}l\ {\isacharequal}{\kern0pt}\ split\ m\ h\ in\ \isanewline
+\ \ let\ {\isacharparenleft}{\kern0pt}x{\isacharunderscore}{\kern0pt}{\isadigit{0}}\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ nat{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}r\ {\isacharasterisk}{\kern0pt}\ r{\isacharparenright}{\kern0pt}\ mod\ n\ in\ \isanewline
+\ \ let\ {\isacharparenleft}{\kern0pt}c{\isacharcomma}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ enc{\isacharunderscore}{\kern0pt}loop\ {\isacharparenleft}{\kern0pt}n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ m{\isacharunderscore}{\kern0pt}l{\isacharparenright}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}{\isadigit{0}}\ in\ \isanewline
+\ \ let\ x{\isacharunderscore}{\kern0pt}t{\isacharprime}{\kern0pt}\ {\isacharequal}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t\ {\isacharasterisk}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t\ mod\ n\ in\ \isanewline
+\ \ {\isacharparenleft}{\kern0pt}c{\isacharcomma}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t{\isacharprime}{\kern0pt}{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\isanewline
+\isanewline
+\isacommand{definition}\isamarkupfalse%
+\ encrypt{\isacharunderscore}{\kern0pt}alt\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat\ {\isasymRightarrow}\ bitstring\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ {\isacharparenleft}{\kern0pt}bitstring\ list\ {\isasymtimes}\ nat{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
+\ \ {\isachardoublequoteopen}encrypt{\isacharunderscore}{\kern0pt}alt\ n\ m\ r\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}\isanewline
+\ \ let\ h\ {\isacharequal}{\kern0pt}\ nat\ {\isasymlfloor}log\ {\isadigit{2}}\ {\isacharparenleft}{\kern0pt}log\ {\isadigit{2}}\ n{\isacharparenright}{\kern0pt}{\isasymrfloor}\ in\ \isanewline
+\ \ let\ m{\isacharunderscore}{\kern0pt}l\ {\isacharequal}{\kern0pt}\ split\ m\ h\ in\ \isanewline
+\ \ let\ {\isacharparenleft}{\kern0pt}x{\isacharunderscore}{\kern0pt}{\isadigit{0}}\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ nat{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}r\ {\isacharasterisk}{\kern0pt}\ r{\isacharparenright}{\kern0pt}\ mod\ n\ in\ \isanewline
+\ \ let\ {\isacharparenleft}{\kern0pt}c{\isacharcomma}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}alt\ {\isacharparenleft}{\kern0pt}n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ m{\isacharunderscore}{\kern0pt}l{\isacharparenright}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}{\isadigit{0}}\ in\ \isanewline
+\ \ let\ x{\isacharunderscore}{\kern0pt}t{\isacharprime}{\kern0pt}\ {\isacharequal}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t\ {\isacharasterisk}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t\ mod\ n\ in\ \isanewline
+\ \ {\isacharparenleft}{\kern0pt}c{\isacharcomma}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t{\isacharprime}{\kern0pt}{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}%
+\begin{isamarkuptext}%
+An alternate definition of floor log:%
+\end{isamarkuptext}\isamarkuptrue%
+\isacommand{fun}\isamarkupfalse%
+\ floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log{\isacharunderscore}{\kern0pt}rec\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ nat{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
+\ \ {\isachardoublequoteopen}floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log{\isacharunderscore}{\kern0pt}rec\ {\isadigit{0}}\ n\ acc\ {\isacharequal}{\kern0pt}\ {\isadigit{0}}{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\isanewline
+\ \ {\isachardoublequoteopen}floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log{\isacharunderscore}{\kern0pt}rec\ {\isacharparenleft}{\kern0pt}Suc\ {\isadigit{0}}{\isacharparenright}{\kern0pt}\ n\ acc\ {\isacharequal}{\kern0pt}\ {\isadigit{0}}{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\isanewline
+\ \ {\isachardoublequoteopen}floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log{\isacharunderscore}{\kern0pt}rec\ base\ {\isadigit{0}}\ {\isadigit{0}}\ {\isacharequal}{\kern0pt}\ {\isadigit{0}}{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\ \isanewline
+\ \ {\isachardoublequoteopen}floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log{\isacharunderscore}{\kern0pt}rec\ base\ {\isadigit{0}}\ {\isacharparenleft}{\kern0pt}Suc\ acc{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ acc{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\ \isanewline
+\ \ {\isachardoublequoteopen}floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log{\isacharunderscore}{\kern0pt}rec\ base\ {\isacharparenleft}{\kern0pt}Suc\ n{\isacharparenright}{\kern0pt}\ acc\ \isanewline
+\ \ \ \ {\isacharequal}{\kern0pt}\ floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log{\isacharunderscore}{\kern0pt}rec\ base\ {\isacharparenleft}{\kern0pt}{\isacharparenleft}{\kern0pt}Suc\ n{\isacharparenright}{\kern0pt}\ div\ base{\isacharparenright}{\kern0pt}\ {\isacharparenleft}{\kern0pt}Suc\ acc{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\isanewline
+\isanewline
+\isacommand{definition}\isamarkupfalse%
+\ floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ nat{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
+\ \ {\isachardoublequoteopen}floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log\ base\ n\ {\isacharequal}{\kern0pt}\ floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log{\isacharunderscore}{\kern0pt}rec\ base\ n\ {\isadigit{0}}{\isachardoublequoteclose}\ \isanewline
+\isanewline
+\isacommand{definition}\isamarkupfalse%
+\ encrypt{\isacharunderscore}{\kern0pt}discrete{\isacharunderscore}{\kern0pt}log\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat\ {\isasymRightarrow}\ bitstring\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ {\isacharparenleft}{\kern0pt}bitstring\ list\ {\isasymtimes}\ nat{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
+\ \ {\isachardoublequoteopen}encrypt{\isacharunderscore}{\kern0pt}discrete{\isacharunderscore}{\kern0pt}log\ n\ m\ r\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}\isanewline
+\ \ let\ h\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log\ {\isadigit{2}}\ {\isacharparenleft}{\kern0pt}floor{\isacharunderscore}{\kern0pt}nat{\isacharunderscore}{\kern0pt}log\ {\isadigit{2}}\ n{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}\ in\ \isanewline
+\ \ let\ m{\isacharunderscore}{\kern0pt}l\ {\isacharequal}{\kern0pt}\ split\ m\ h\ in\ \isanewline
+\ \ let\ {\isacharparenleft}{\kern0pt}x{\isacharunderscore}{\kern0pt}{\isadigit{0}}\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ nat{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}r\ {\isacharasterisk}{\kern0pt}\ r{\isacharparenright}{\kern0pt}\ mod\ n\ in\ \isanewline
+\ \ let\ {\isacharparenleft}{\kern0pt}c{\isacharcomma}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ enc{\isacharunderscore}{\kern0pt}loop\ {\isacharparenleft}{\kern0pt}n{\isacharcomma}{\kern0pt}\ h{\isacharcomma}{\kern0pt}\ m{\isacharunderscore}{\kern0pt}l{\isacharparenright}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}{\isadigit{0}}\ in\ \isanewline
+\ \ let\ x{\isacharunderscore}{\kern0pt}t{\isacharprime}{\kern0pt}\ {\isacharequal}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t\ {\isacharasterisk}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t\ mod\ n\ in\ \isanewline
+\ \ {\isacharparenleft}{\kern0pt}c{\isacharcomma}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}t{\isacharprime}{\kern0pt}{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}%
+\begin{isamarkuptext}%
+now the decryption...%
+\end{isamarkuptext}\isamarkuptrue%
+\isacommand{fun}\isamarkupfalse%
+\ calculate{\isacharunderscore}{\kern0pt}exponent\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ nat{\isachardoublequoteclose}\ \isakeyword{where}\ \isanewline
+\ \ {\isachardoublequoteopen}calculate{\isacharunderscore}{\kern0pt}exponent\ t\ p\ {\isacharequal}{\kern0pt}\ \isanewline
+\ \ \ \ {\isacharparenleft}{\kern0pt}let\ d{\isacharunderscore}{\kern0pt}p\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}{\isacharparenleft}{\kern0pt}Suc\ p{\isacharparenright}{\kern0pt}\ div\ {\isadigit{4}}{\isacharparenright}{\kern0pt}\ {\isacharcircum}{\kern0pt}\ {\isacharparenleft}{\kern0pt}Suc\ t{\isacharparenright}{\kern0pt}\ mod\ {\isacharparenleft}{\kern0pt}p\ {\isacharminus}{\kern0pt}\ {\isadigit{1}}{\isacharparenright}{\kern0pt}\ in\ d{\isacharunderscore}{\kern0pt}p{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\isanewline
+\isanewline
+\isacommand{fun}\isamarkupfalse%
+\ merge{\isacharunderscore}{\kern0pt}list\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}{\isacharprime}{\kern0pt}a\ list\ list\ {\isacharequal}{\kern0pt}{\isachargreater}{\kern0pt}\ {\isacharprime}{\kern0pt}a\ list{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
+\ \ {\isachardoublequoteopen}merge{\isacharunderscore}{\kern0pt}list\ {\isacharbrackleft}{\kern0pt}{\isacharbrackright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ {\isacharbrackleft}{\kern0pt}{\isacharbrackright}{\kern0pt}{\isachardoublequoteclose}\ {\isacharbar}{\kern0pt}\isanewline
+\ \ {\isachardoublequoteopen}merge{\isacharunderscore}{\kern0pt}list\ {\isacharparenleft}{\kern0pt}x\ {\isacharhash}{\kern0pt}\ xs{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ x\ {\isacharat}{\kern0pt}\ {\isacharparenleft}{\kern0pt}merge{\isacharunderscore}{\kern0pt}list\ xs{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\isanewline
+\isanewline
+\isacommand{definition}\isamarkupfalse%
+\ decrypt\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ {\isacharparenleft}{\kern0pt}bitstring\ list\ {\isasymtimes}\ nat{\isacharparenright}{\kern0pt}\ {\isasymRightarrow}\ bitstring{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
+\ \ {\isachardoublequoteopen}decrypt\ p\ q\ tup\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}case\ tup\ of\ {\isacharparenleft}{\kern0pt}c{\isacharcomma}{\kern0pt}\ x{\isacharparenright}{\kern0pt}\ {\isasymRightarrow}\ \isanewline
+\ \ \ {\isacharparenleft}{\kern0pt}let\ u{\isacharunderscore}{\kern0pt}p\ {\isacharequal}{\kern0pt}\ x\ {\isacharcircum}{\kern0pt}\ {\isacharparenleft}{\kern0pt}calculate{\isacharunderscore}{\kern0pt}exponent\ {\isacharparenleft}{\kern0pt}length\ c{\isacharparenright}{\kern0pt}\ p{\isacharparenright}{\kern0pt}\ mod\ p\ in\isanewline
+\ \ \ \ let\ u{\isacharunderscore}{\kern0pt}q\ {\isacharequal}{\kern0pt}\ x\ {\isacharcircum}{\kern0pt}\ {\isacharparenleft}{\kern0pt}calculate{\isacharunderscore}{\kern0pt}exponent\ {\isacharparenleft}{\kern0pt}length\ c{\isacharparenright}{\kern0pt}\ q{\isacharparenright}{\kern0pt}\ mod\ q\ in\isanewline
+\ \ \ \ let\ {\isacharparenleft}{\kern0pt}{\isacharparenleft}{\kern0pt}r{\isacharunderscore}{\kern0pt}p{\isacharcomma}{\kern0pt}\ r{\isacharunderscore}{\kern0pt}q{\isacharparenright}{\kern0pt}{\isacharcomma}{\kern0pt}\ {\isacharunderscore}{\kern0pt}{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ euclid{\isacharunderscore}{\kern0pt}ext\ {\isacharparenleft}{\kern0pt}int\ p{\isacharparenright}{\kern0pt}\ {\isacharparenleft}{\kern0pt}int\ q{\isacharparenright}{\kern0pt}\ in\isanewline
+\ \ \ \ let\ x{\isacharunderscore}{\kern0pt}{\isadigit{0}}\ {\isacharequal}{\kern0pt}\ nat\ {\isacharparenleft}{\kern0pt}{\isacharparenleft}{\kern0pt}int\ u{\isacharunderscore}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ r{\isacharunderscore}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ int\ p\ {\isacharplus}{\kern0pt}\ int\ u{\isacharunderscore}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ r{\isacharunderscore}{\kern0pt}q\ {\isacharasterisk}{\kern0pt}\ int\ q{\isacharparenright}{\kern0pt}\ mod\ {\isacharparenleft}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ q{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}\ in\isanewline
+\ \ \ \ let\ {\isacharparenleft}{\kern0pt}m{\isacharcomma}{\kern0pt}\ x{\isacharprime}{\kern0pt}{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ enc{\isacharunderscore}{\kern0pt}loop\ {\isacharparenleft}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ q{\isacharcomma}{\kern0pt}\ {\isacharparenleft}{\kern0pt}nat\ {\isasymlfloor}log\ {\isadigit{2}}\ {\isacharparenleft}{\kern0pt}log\ {\isadigit{2}}\ {\isacharparenleft}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ q{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}{\isasymrfloor}{\isacharparenright}{\kern0pt}\ {\isacharcomma}{\kern0pt}\ c{\isacharparenright}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}{\isadigit{0}}\ in\isanewline
+\ \ \ \ merge{\isacharunderscore}{\kern0pt}list\ m{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\isanewline
+\isanewline
+\isacommand{definition}\isamarkupfalse%
+\ decrypt{\isacharunderscore}{\kern0pt}alt\ {\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}\ {\isachardoublequoteopen}nat\ {\isasymRightarrow}\ nat\ {\isasymRightarrow}\ {\isacharparenleft}{\kern0pt}bitstring\ list\ {\isasymtimes}\ nat{\isacharparenright}{\kern0pt}\ {\isasymRightarrow}\ bitstring{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
+\ \ {\isachardoublequoteopen}decrypt{\isacharunderscore}{\kern0pt}alt\ p\ q\ tup\ {\isacharequal}{\kern0pt}\ {\isacharparenleft}{\kern0pt}case\ tup\ of\ {\isacharparenleft}{\kern0pt}c{\isacharcomma}{\kern0pt}\ x{\isacharparenright}{\kern0pt}\ {\isasymRightarrow}\ \isanewline
+\ \ \ {\isacharparenleft}{\kern0pt}let\ {\isacharparenleft}{\kern0pt}u{\isacharunderscore}{\kern0pt}p{\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}nat{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ x\ {\isacharcircum}{\kern0pt}\ {\isacharparenleft}{\kern0pt}calculate{\isacharunderscore}{\kern0pt}exponent\ {\isacharparenleft}{\kern0pt}length\ c{\isacharparenright}{\kern0pt}\ p{\isacharparenright}{\kern0pt}\ mod\ p\ in\isanewline
+\ \ \ \ let\ {\isacharparenleft}{\kern0pt}u{\isacharunderscore}{\kern0pt}q{\isacharcolon}{\kern0pt}{\isacharcolon}{\kern0pt}nat{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ x\ {\isacharcircum}{\kern0pt}\ {\isacharparenleft}{\kern0pt}calculate{\isacharunderscore}{\kern0pt}exponent\ {\isacharparenleft}{\kern0pt}length\ c{\isacharparenright}{\kern0pt}\ q{\isacharparenright}{\kern0pt}\ mod\ q\ in\isanewline
+\ \ \ \ let\ {\isacharparenleft}{\kern0pt}{\isacharparenleft}{\kern0pt}r{\isacharunderscore}{\kern0pt}p{\isacharcomma}{\kern0pt}\ r{\isacharunderscore}{\kern0pt}q{\isacharparenright}{\kern0pt}{\isacharcomma}{\kern0pt}\ {\isacharunderscore}{\kern0pt}{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ euclid{\isacharunderscore}{\kern0pt}ext\ {\isacharparenleft}{\kern0pt}int\ p{\isacharparenright}{\kern0pt}\ {\isacharparenleft}{\kern0pt}int\ q{\isacharparenright}{\kern0pt}\ in\isanewline
+\ \ \ \ let\ x{\isacharunderscore}{\kern0pt}{\isadigit{0}}\ {\isacharequal}{\kern0pt}\ nat\ {\isacharparenleft}{\kern0pt}{\isacharparenleft}{\kern0pt}u{\isacharunderscore}{\kern0pt}q\ {\isacharasterisk}{\kern0pt}\ r{\isacharunderscore}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ p\ {\isacharplus}{\kern0pt}\ u{\isacharunderscore}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ r{\isacharunderscore}{\kern0pt}q\ {\isacharasterisk}{\kern0pt}\ q{\isacharparenright}{\kern0pt}\ mod\ int\ {\isacharparenleft}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ q{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}\ in\isanewline
+\ \ \ \ let\ {\isacharparenleft}{\kern0pt}m{\isacharcomma}{\kern0pt}\ x{\isacharprime}{\kern0pt}{\isacharparenright}{\kern0pt}\ {\isacharequal}{\kern0pt}\ enc{\isacharunderscore}{\kern0pt}loop{\isacharunderscore}{\kern0pt}alt\ {\isacharparenleft}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ q{\isacharcomma}{\kern0pt}\ {\isacharparenleft}{\kern0pt}nat\ {\isasymlfloor}log\ {\isadigit{2}}\ {\isacharparenleft}{\kern0pt}log\ {\isadigit{2}}\ {\isacharparenleft}{\kern0pt}p\ {\isacharasterisk}{\kern0pt}\ q{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}{\isasymrfloor}{\isacharparenright}{\kern0pt}\ {\isacharcomma}{\kern0pt}\ c{\isacharparenright}{\kern0pt}\ x{\isacharunderscore}{\kern0pt}{\isadigit{0}}\ in\isanewline
+\ \ \ \ merge{\isacharunderscore}{\kern0pt}list\ m{\isacharparenright}{\kern0pt}{\isacharparenright}{\kern0pt}{\isachardoublequoteclose}\isanewline
+%
+\isadelimtheory
+\isanewline
+%
+\endisadelimtheory
+%
+\isatagtheory
+\isacommand{end}\isamarkupfalse%
+%
+\endisatagtheory
+{\isafoldtheory}%
+%
+\isadelimtheory
+%
+\endisadelimtheory
+%
+\end{isabellebody}%
+\endinput
+%:%file=~/Desktop/BlumGoldwasser/BG_formalization.thy%:%
+%:%10=1%:%
+%:%11=1%:%
+%:%12=2%:%
+%:%13=3%:%
+%:%14=4%:%
+%:%15=5%:%
+%:%16=6%:%
+%:%30=8%:%
+%:%42=9%:%
+%:%43=10%:%
+%:%44=11%:%
+%:%53=13%:%
+%:%65=14%:%
+%:%66=15%:%
+%:%68=16%:%
+%:%69=16%:%
+%:%70=17%:%
+%:%77=19%:%
+%:%89=21%:%
+%:%91=23%:%
+%:%92=23%:%
+%:%94=25%:%
+%:%95=26%:%
+%:%96=27%:%
+%:%100=29%:%
+%:%101=30%:%
+%:%103=32%:%
+%:%104=32%:%
+%:%105=33%:%
+%:%106=34%:%
+%:%107=35%:%
+%:%109=37%:%
+%:%110=38%:%
+%:%114=42%:%
+%:%115=43%:%
+%:%117=45%:%
+%:%118=45%:%
+%:%119=46%:%
+%:%120=47%:%
+%:%121=48%:%
+%:%122=49%:%
+%:%127=54%:%
+%:%128=55%:%
+%:%129=56%:%
+%:%130=57%:%
+%:%131=58%:%
+%:%132=58%:%
+%:%133=59%:%
+%:%134=60%:%
+%:%135=61%:%
+%:%136=62%:%
+%:%141=67%:%
+%:%142=68%:%
+%:%143=69%:%
+%:%144=70%:%
+%:%145=71%:%
+%:%146=72%:%
+%:%147=72%:%
+%:%148=73%:%
+%:%149=74%:%
+%:%150=75%:%
+%:%151=76%:%
+%:%156=81%:%
+%:%157=82%:%
+%:%158=83%:%
+%:%159=84%:%
+%:%160=85%:%
+%:%161=86%:%
+%:%162=86%:%
+%:%163=87%:%
+%:%164=88%:%
+%:%165=89%:%
+%:%167=93%:%
+%:%168=94%:%
+%:%170=96%:%
+%:%171=96%:%
+%:%172=97%:%
+%:%173=98%:%
+%:%174=99%:%
+%:%176=104%:%
+%:%180=106%:%
+%:%181=107%:%
+%:%183=108%:%
+%:%184=108%:%
+%:%185=109%:%
+%:%187=111%:%
+%:%189=112%:%
+%:%190=112%:%
+%:%191=113%:%
+%:%192=114%:%
+%:%193=115%:%
+%:%194=116%:%
+%:%195=117%:%
+%:%196=118%:%
+%:%197=118%:%
+%:%198=119%:%
+%:%199=120%:%
+%:%200=121%:%
+%:%204=126%:%
+%:%206=127%:%
+%:%207=127%:%
+%:%208=128%:%
+%:%214=134%:%
+%:%215=135%:%
+%:%216=136%:%
+%:%217=136%:%
+%:%218=137%:%
+%:%226=146%:%
+%:%228=148%:%
+%:%229=148%:%
+%:%230=149%:%
+%:%231=150%:%
+%:%232=151%:%
+%:%233=152%:%
+%:%234=153%:%
+%:%235=154%:%
+%:%236=155%:%
+%:%237=156%:%
+%:%238=156%:%
+%:%239=157%:%
+%:%240=158%:%
+%:%241=159%:%
+%:%242=159%:%
+%:%243=160%:%
+%:%251=175%:%
+%:%253=177%:%
+%:%254=177%:%
+%:%255=178%:%
+%:%256=179%:%
+%:%257=180%:%
+%:%258=181%:%
+%:%259=181%:%
+%:%260=182%:%
+%:%261=183%:%
+%:%262=184%:%
+%:%263=185%:%
+%:%264=185%:%
+%:%265=186%:%
+%:%271=192%:%
+%:%272=193%:%
+%:%273=194%:%
+%:%274=194%:%
+%:%275=195%:%
+%:%281=201%:%
+%:%284=202%:%
+%:%289=203%:%
