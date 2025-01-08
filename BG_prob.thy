@@ -23,6 +23,176 @@ where
     return_pmf (key_gen p q)
   }"
 
+
+lemma 
+  assumes "finite \<K>" "card \<K> > 1"
+  shows "pmf (pmf_of_set (\<K> \<times> \<K> - {(x, x) |x. x \<in> \<K>})) (p, q) 
+   = pmf (do {
+    p \<leftarrow> pmf_of_set \<K>; 
+    q \<leftarrow> pmf_of_set (\<K> - {p});
+    return_pmf (p, q)}) (p, q)"
+proof - 
+  from assms(2) have card_\<K>: "card \<K> \<ge> 2" by auto
+  let ?id = "{p. \<exists>x. p = (x, x) \<and> x \<in> \<K>}"
+  from assms(1) have finite_\<K>_pair: "finite (\<K> \<times> \<K>)" by auto
+  then have end_set_finite: "finite (\<K> \<times> \<K> - ?id)" by auto
+
+  have card_\<K>_pair: "card (\<K> \<times> \<K>) = card \<K> * card \<K>" 
+    by (simp add: card_cartesian_product)
+  have id_subset: "?id \<subseteq> \<K> \<times> \<K>" by auto
+  then have finite_id: "finite ?id" using finite_subset finite_\<K>_pair by auto
+
+  let ?double = "\<lambda>x. (x, x)"
+  
+  have inj_on_\<K>: "inj_on ?double \<K>"
+    using inj_on_convol_ident
+    by fast
+  have "?double ` \<K> = ?id" 
+    by auto
+  then have card_id: "card \<K> = card ?id"
+    using inj_on_\<K> card_image 
+    by fastforce
+  
+  have  "card ((\<K> \<times> \<K>) - ?id) = card (\<K> \<times> \<K>) - card ?id"
+    using id_subset card_Diff_subset finite_id
+    by auto
+  then have "card ((\<K> \<times> \<K>) - ?id) = card \<K> * card \<K> - card \<K>"
+    using card_\<K>_pair card_id by auto
+  then have card_times_id: "card ((\<K> \<times> \<K>) - ?id) = card \<K> * (card \<K> - 1)"
+    using nat_distrib(4) nat_mult_1_right by presburger
+  then have "card ((\<K> \<times> \<K>) - ?id) \<ge> 2 * (2 - 1)" 
+    using card_\<K>
+    using diff_le_mono mult_le_mono by presburger
+  then have "card ((\<K> \<times> \<K>) - ?id) \<ge> 2" by auto
+  then have end_set_not_empty: "(\<K> \<times> \<K>) - ?id \<noteq> {}" by fastforce
+
+  from end_set_not_empty pmf_of_set
+  have "pmf (pmf_of_set (\<K> \<times> \<K> - ?id)) (p, q) = indicator (\<K> \<times> \<K> - ?id) (p, q) / (card (\<K> \<times> \<K> - ?id))" 
+    by (simp add: end_set_finite)
+  then have left_side_final: "pmf (pmf_of_set (\<K> \<times> \<K> - ?id)) (p, q) = indicator (\<K> \<times> \<K> - ?id) (p, q) / (card \<K> * (card \<K> - 1))"
+    using card_times_id by auto
+
+
+  let ?pmf_fun = "\<lambda>xa. do {q \<leftarrow> pmf_of_set (\<K> - {xa}); return_pmf (xa, q)}"
+  let ?pmf_whole = "pmf (do {
+    p \<leftarrow> pmf_of_set \<K>; 
+    q \<leftarrow> pmf_of_set (\<K> - {p});
+    return_pmf (p, q)})"
+  
+  from assms(2) have "\<K> \<noteq> {}" by auto
+  from this assms(2)
+  have pmf_bind_1: "?pmf_whole (p, q) = (\<Sum>xa\<in>\<K>. pmf (?pmf_fun xa) (p, q)) / real (card \<K>)"
+    using assms
+    by (auto simp add: pmf_bind_pmf_of_set)
+
+  have finite_minus: "\<And>p. finite (\<K> - {p})" using assms(1) by auto
+  have  "\<And>p. card (\<K> - {p}) > 0" using assms(2) 
+    by (simp add: \<open>\<K> \<noteq> {}\<close> assms(1) card_Diff_singleton_if)
+  then have not_empty_minus: "\<And>p. (\<K> - {p}) \<noteq> {}" 
+   using card_gt_0_iff by blast
+
+  have "(\<Sum>xa\<in>\<K>. pmf (?pmf_fun xa) (p, q)) = 
+    (\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). pmf (return_pmf (xa, xb)) (p, q)) / real (card (\<K> - {xa})))"
+    using finite_minus not_empty_minus
+    by (auto simp add: pmf_bind_pmf_of_set)
+
+  then have "(\<Sum>xa\<in>\<K>. pmf (?pmf_fun xa) (p, q)) =
+    (\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb))) / real (card (\<K> - {xa})))" 
+    using pmf_return
+    by auto
+
+  then have "(\<Sum>xa\<in>\<K>. pmf (?pmf_fun xa) (p, q)) =
+    (\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb)))) / (card \<K> - 1)"  
+    by (auto simp add: sum_divide_distrib)
+
+  then have "?pmf_whole (p, q) 
+  = ((\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb)))) / (card \<K> - 1)) / (card \<K>)" 
+    using pmf_bind_1 by auto
+  then have right_side_final: "?pmf_whole (p, q) 
+  = ((\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb))))) / ((card \<K> - 1) * (card \<K>))"
+    by auto
+
+  consider (case_0) "p \<notin> \<K> \<or> q \<notin> \<K> \<or> p = q" | (case_1) "p \<in> \<K> \<and> q \<in> \<K> \<and> p \<noteq> q" by auto
+  then show ?thesis
+    proof (cases)
+      case case_0
+      then have not_in: "(p, q) \<notin> \<K> \<times> \<K> - ?id" by auto
+      then have "indicat_real (\<K> \<times> \<K> - ?id) (p, q) = 0" by auto
+      from left_side_final this
+      have left_side_zero: "pmf (pmf_of_set (\<K> \<times> \<K> - ?id)) (p, q) = 0" by auto
+
+      have "\<And>x y. x \<in> \<K> \<Longrightarrow> y \<in> \<K> - {x} \<Longrightarrow> x \<noteq> y" by auto
+      then have implies_notin: "\<And>x y. x \<in> \<K> \<Longrightarrow> y \<in> \<K> - {x} \<Longrightarrow> (x, y) \<in> \<K> \<times> \<K> - ?id"
+        by auto
+      have "\<And>x y. (x, y) \<in> \<K> \<times> \<K> - ?id \<Longrightarrow> (x, y) \<noteq> (p, q)" 
+        using not_in by auto
+      from this implies_notin have 
+        "\<And>x y. x \<in> \<K> \<Longrightarrow> y \<in> \<K> - {x} \<Longrightarrow> (x, y) \<notin> {(p, q)}" by auto
+      then have  
+        "\<And>x y. x \<in> \<K> \<Longrightarrow> y \<in> \<K> - {x} \<Longrightarrow> indicat_real {(p, q)} (x, y) = 0" 
+        by fastforce
+      
+      from this have "((\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb))))) = 0" by auto
+      then have "?pmf_whole (p, q) = 0" using right_side_final by auto
+      thus ?thesis using left_side_zero by auto
+    next
+      case case_1
+      then have is_in: "(p, q) \<in> \<K> \<times> \<K> - ?id" 
+        by auto
+      then have "indicat_real (\<K> \<times> \<K> - ?id) (p, q) = 1" by auto
+      from left_side_final this
+      have left_side_prob: "pmf (pmf_of_set (\<K> \<times> \<K> - ?id)) (p, q) = 1 / (card \<K> * (card \<K> - 1))" 
+        by auto
+
+      from is_in have "\<exists>x y. (x, y) \<in> \<K> \<times> \<K> - ?id \<and> (x, y) = (p, q)" by auto
+      then have "\<exists>x y. x \<in> \<K> \<and> y \<in> \<K> - {x} \<and> (x, y) \<in> {(p, q)}" by auto
+      then obtain x y where x_y_obtain: "x \<in> \<K>" "y \<in> \<K> - {x}" "(x, y) \<in> {(p, q)}" by blast
+      
+      then have "x \<in> \<K> \<and> y \<in> \<K> - {x} \<and> (indicat_real {(p, q)} (x, y) = 1)"
+        by fastforce
+
+      let ?f_1 = "\<lambda>_. 1"
+      let ?f_2 = "\<lambda>xa. card ((\<K> - {xa}) \<inter> {q}) "
+
+      have "\<And>a b. indicat_real {(p, q)} (a, b) = indicat_real {p} a * indicat_real {q} b" 
+        by (simp add: indicator_def)
+      then have
+        "(\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb)))) =
+         (\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). indicat_real {p} xa * indicat_real {q} xb))" 
+        by auto
+      then have 
+        sum_last: "(\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb)))) =
+         (\<Sum>xa\<in>\<K>. indicat_real {p} xa * (\<Sum>xb\<in>(\<K> - {xa}). (?f_1 xb) * indicat_real {q} xb))" 
+        by (simp add: sum_distrib_left)
+      
+      have "\<And>xa. (\<Sum>xb\<in>\<K> - {xa}. (?f_1 xb) * indicat_real {q} xb)
+        = sum ?f_1 ((\<K> - {xa}) \<inter> {q})" 
+        by (simp add: assms(1) indicator_def)
+      from sum_last this have "(\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb)))) =
+         (\<Sum>xa\<in>\<K>. indicat_real {p} xa * sum ?f_1 ((\<K> - {xa}) \<inter> {q}))" by auto  
+      then have "(\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb)))) =
+         (\<Sum>xa\<in>\<K>. indicat_real {p} xa * card ((\<K> - {xa}) \<inter> {q})) " by auto
+      
+      then have "(\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb)))) =
+         (\<Sum>xa\<in>\<K>. indicat_real {p} xa * ?f_2 xa)" by auto
+      then have "(\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb)))) =
+         sum ?f_2 (\<K> \<inter> {p})" 
+        by (auto simp add: assms(1) indicator_def)
+      then have "(\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb)))) =
+         card ((\<K> - {p}) \<inter> {q})" 
+        using case_1 by auto
+      then have "(\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb)))) = 1" 
+        using case_1 by auto
+      from this right_side_final 
+      have 
+      "((\<Sum>xa\<in>\<K>. (\<Sum>xb\<in>(\<K> - {xa}). (indicat_real {(p, q)} (xa, xb))))) / ((card \<K> - 1) * (card \<K>)) 
+      = 1 / ((card \<K> - 1) * (card \<K>))" by auto
+      then have "?pmf_whole (p, q) = 1 / ((card \<K> - 1) * (card \<K>))" using right_side_final by auto
+      thus ?thesis using left_side_prob by auto
+    qed  
+qed
+
+
 (*Problems:
   1. The set is infinite. Hence, spmf_of_set won't work here
     - Idea 1: Limit the set by a random number?
@@ -56,10 +226,11 @@ theorem
   assumes 
     "m \<noteq> []"
     "card {(p::nat). prime p \<and>  p mod 4 = 3 \<and> l \<le> p \<and> p \<le> u} > 1" 
-  shows  "pmf (do {
-  (n, (p, q)) \<leftarrow> key_gen_prob l u;
-  (c, x) \<leftarrow> (encrypt_prob n m);
-  return_pmf (decrypt_alt p q (c, x) = m)}) True = 1"
+  shows  
+    "pmf (do {
+    (n, (p, q)) \<leftarrow> key_gen_prob l u;
+    (c, x) \<leftarrow> (encrypt_prob n m);
+    return_pmf (decrypt_alt p q (c, x) = m)}) True = 1"
 proof - 
   have "do {
   (n, (p, q)) \<leftarrow> key_gen_prob l u;

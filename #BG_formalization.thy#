@@ -143,6 +143,16 @@ definition encrypt_alt :: "nat \<Rightarrow> bitstring \<Rightarrow> nat \<Right
   (c, x_t'))"
 
 
+definition encrypt_alt' :: "nat \<Rightarrow> bitstring \<Rightarrow> nat \<Rightarrow> (bitstring list \<times> nat)" where
+  "encrypt_alt' n m r = (
+  let h = fold (\<lambda>acc x. max acc x) (filter (\<lambda>x. length m mod x = 0) [nat \<lfloor>log 2 (log 2 n)\<rfloor>, 16, 8, 4, 2, 1]) 0 in 
+  let m_l = split m h in 
+  let (x_0 :: nat) = (r * r) mod n in 
+  let (c, x_t) = enc_loop_alt (n, h, m_l) x_0 in 
+  let x_t' = x_t * x_t mod n in 
+  (c, x_t'))"
+
+
 text "An alternate definition of floor log:"
 
 fun floor_nat_log_rec :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat" where

@@ -474,7 +474,6 @@ proof (induction m arbitrary: c x)
 next
   let ?f = "nat_to_bitstring h"
   case (Cons a m)
-  assume "\<forall>l \<in> set (a # m). length l \<le> h" 
   assume "c = fst (enc_loop_alt (n, h, a # m) x)"
 
   then have "c = enc_loop_func_list (?f, n, h, a # m) x" by auto
@@ -865,7 +864,7 @@ proof -
   then have decrypt_merge: "decrypt_alt p q (encrypt_alt (p * q) m r) = 
     merge_list ((split m (nat h)))" using decrypt_eq_merge by auto
 
-  from h_gr_1 have "merge_list ((split m (nat h))) = m" 
+  from h_gr_1 have "merge_list (split m (nat h)) = m" 
      using merge_split_in_place by auto
 
   from this decrypt_merge show ?thesis by auto (*what? did i really finish it now???*)

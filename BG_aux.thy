@@ -4,11 +4,6 @@ begin
 
 section "Auxillary Lemmas"
 
-text "Here, we have all the auxillary definitions used in the formalization of Blum-Goldwasser cryptosystem"
-
-
-section "Auxillary Lemmas"
-
 text "Here, we have all the auxillary lemmas used to prove the correctness of Blum-Goldwasser cryptosystem"
 
 
